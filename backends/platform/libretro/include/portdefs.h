@@ -37,15 +37,26 @@
    This conflicts with the use of _X as a variable name. */
 #undef _X
 
-#define RES_W 640
-#define RES_H 480
+#define RES_W 320
+#define RES_H 240
 
+#define MAX_RES_W 640
+#define MAX_RES_H 480
+
+/* Force lowres menus */
+#if 1
+#define RES_W_OVERLAY 320
+#define RES_H_OVERLAY 200
+#endif
+
+#if 0
 #if defined(DINGUX) || defined(_3DS)
 #define RES_W_OVERLAY 320
 #define RES_H_OVERLAY 240
 #else
 #define RES_W_OVERLAY 640
 #define RES_H_OVERLAY 480
+#endif
 #endif
 
 // HACK: With MinGW, GRIM engine seems to crash when using setjmp and longjmp if not using builtin versions

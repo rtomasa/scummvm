@@ -295,3 +295,4 @@ dists/emscripten/emsdk-*
 #Ignore Atari/FreeMiNT files
 scummvm.gtp
 scummvm.ttp
+NOTES.txt

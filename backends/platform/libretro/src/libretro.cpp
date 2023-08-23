@@ -101,6 +101,9 @@ static uint8 performance_switch = 0;
 static uint32 perf_ref_frame = 0;
 static uint32 perf_ref_audio_buff_occupancy = 0;
 
+static int video_w = RES_W;
+static int video_h = RES_H;
+
 float frame_rate = 0;
 uint16 sample_rate = 0;
 static uint16 samples_per_frame = 0;               // length in samples per frame
@@ -482,10 +485,10 @@ void retro_get_system_info(struct retro_system_info *info) {
 }
 
 void retro_get_system_av_info(struct retro_system_av_info *info) {
-	info->geometry.base_width = RES_W;
-	info->geometry.base_height = RES_H;
-	info->geometry.max_width = RES_W;
-	info->geometry.max_height = RES_H;
+	info->geometry.base_width = video_w;
+	info->geometry.base_height = video_h;
+	info->geometry.max_width = MAX_RES_W;
+	info->geometry.max_height = MAX_RES_H;
 	info->geometry.aspect_ratio = 4.0f / 3.0f;
 	info->timing.fps = frame_rate;
 	info->timing.sample_rate = sample_rate;
@@ -729,8 +732,8 @@ void retro_run(void) {
 
 	if (audio_status & AUDIO_STATUS_UPDATE_AV_INFO){
 		struct retro_system_av_info info;
-		info.geometry.base_width = RES_W;
-		info.geometry.base_height = RES_H;
+		info.geometry.base_width = video_w;
+		info.geometry.base_height = video_h;
 		info.geometry.max_width = RES_W;
 		info.geometry.max_height = RES_H;
 		info.geometry.aspect_ratio = 4.0f / 3.0f;
@@ -839,6 +842,22 @@ void retro_run(void) {
 			if ((audio_video_enable & 1) && !skip_frame) {
 				const Graphics::Surface &screen = LIBRETRO_G_SYSTEM->getScreen();
 				video_cb(screen.getPixels(), screen.w, screen.h, screen.pitch);
+
+				if (video_w != screen.w || video_h != screen.h)
+				{
+					struct retro_system_av_info info;
+					video_w = screen.w;
+					video_h = screen.h;
+					//printf("*** W=%d, H=%d ***\n", video_w, video_h);
+					info.geometry.base_width = video_w;
+					info.geometry.base_height = video_h;
+					info.geometry.max_width = MAX_RES_W;
+					info.geometry.max_height = MAX_RES_H;
+					info.geometry.aspect_ratio = 4.0f / 3.0f;
+					info.timing.fps = frame_rate;
+					info.timing.sample_rate = sample_rate;
+					environ_cb(RETRO_ENVIRONMENT_SET_GEOMETRY , &info);
+				}
 			}
 
 			if (audio_status & AUDIO_STATUS_MUTE)
