@@ -26,6 +26,38 @@
 
 // -- French: Adi 5 --
 
+{
+	{
+
+		"adi5",
+		_s("Missing game code"), // Adi 5 5.01 (Engine: DEV7 version unknown)
+		AD_ENTRY1s("adi5.stk", "5de6b43725b47164e8b181de361d0693", 611309),
+		FR_FRA,
+		kPlatformWindows,
+		ADGF_UNSUPPORTED,
+		GUIO0()
+	},
+	kGameTypeNone,
+	kFeatures640x480,
+	0,0,0
+},
+
+{
+	{
+
+		"adi5",
+		_s("Missing game code"), // Adi 5 5.04 (Engine: DEV7 version 1.1.0.0)
+		AD_ENTRY1s("adi5.stk", "17754a1b942c3af34e86820f19971895", 891549),
+		FR_FRA,
+		kPlatformWindows,
+		ADGF_UNSUPPORTED,
+		GUIO0()
+	},
+	kGameTypeNone,
+	kFeatures640x480,
+	0,0,0
+},
+
 // -- German: Addy 5 --
 
 {

@@ -267,7 +267,7 @@ void DecompressorState::resetEverything() {
 		b = 0;
 
 	_windowOffset = 0;
-	
+
 	uint16 nextValue = 0;
 	for (int i = 0; i < 30; i++) {
 		_matchVLCOffsets[i] = nextValue;
@@ -435,7 +435,7 @@ byte DecompressorState::g_matchVLCLengths[DecompressorState::kNumMatchVLCs] = {
 
 class DecompressingStream : public Common::SeekableReadStream {
 public:
-	DecompressingStream(Common::SeekableReadStream *baseStream, uint32 compressedSize, uint32 decompressedSize);
+	DecompressingStream(Common::SeekableReadStream *baseStream, uint32 decompressedSize);
 	~DecompressingStream();
 
 	int64 pos() const override;
@@ -455,14 +455,13 @@ private:
 	Common::SeekableReadStream *_baseStream;
 
 	uint32 _pos;
-	uint32 _compressedSize;
 	uint32 _decompressedSize;
 	bool _eosFlag;
 	bool _errFlag;
 };
 
-DecompressingStream::DecompressingStream(Common::SeekableReadStream *baseStream, uint32 compressedSize, uint32 decompressedSize)
-	: _baseStream(baseStream), _compressedSize(compressedSize), _decompressedSize(decompressedSize), _pos(0), _eosFlag(false), _errFlag(false), _decomp(baseStream) {
+DecompressingStream::DecompressingStream(Common::SeekableReadStream *baseStream, uint32 decompressedSize)
+	: _baseStream(baseStream), _decompressedSize(decompressedSize), _pos(0), _eosFlag(false), _errFlag(false), _decomp(baseStream) {
 }
 
 DecompressingStream::~DecompressingStream() {
@@ -585,6 +584,7 @@ public:
 	ArchiveItem(Common::SeekableReadStream *stream, Common::Mutex *guardMutex, const Common::String &path, const Common::String &name, int64 filePos, uint compressedSize, uint decompressedSize, bool isCompressed);
 
 	Common::SeekableReadStream *createReadStream() const override;
+	Common::SeekableReadStream *createReadStreamForAltStream(Common::AltStreamType altStreamType) const override;
 	Common::String getName() const override;
 	Common::Path getPathInArchive() const override { return getName(); }
 	Common::String getFileName() const override { return getName(); }
@@ -618,9 +618,13 @@ Common::SeekableReadStream *ArchiveItem::createReadStream() const {
 	sliceSubstream = Common::wrapBufferedSeekableReadStream(sliceSubstream, 4096, DisposeAfterUse::YES);
 
 	if (_isCompressed)
-		return new DecompressingStream(sliceSubstream, _compressedSize, _decompressedSize);
+		return new DecompressingStream(sliceSubstream, _decompressedSize);
 	else
 		return sliceSubstream;
+}
+
+Common::SeekableReadStream *ArchiveItem::createReadStreamForAltStream(Common::AltStreamType altStreamType) const {
+	return nullptr;
 }
 
 Common::String ArchiveItem::getName() const {

@@ -837,10 +837,18 @@ void LB::b_getLast(int nargs) {
 	Datum list = g_lingo->pop();
 	switch (list.type) {
 	case ARRAY:
-		g_lingo->push(list.u.farr->arr.back());
+		if (list.u.farr->arr.empty()) {
+			g_lingo->pushVoid();
+		} else {
+			g_lingo->push(list.u.farr->arr.back());
+		}
 		break;
 	case PARRAY:
-		g_lingo->push(list.u.parr->arr.back().v);
+		if (list.u.farr->arr.empty()) {
+			g_lingo->pushVoid();
+		} else {
+			g_lingo->push(list.u.parr->arr.back().v);
+		}
 		break;
 	default:
 		TYPECHECK(list, ARRAY);
@@ -3095,9 +3103,14 @@ void LB::b_soundBusy(int nargs) {
 	DirectorSound *sound = g_director->getCurrentWindow()->getSoundManager();
 	Datum whichChannel = g_lingo->pop();
 
-	TYPECHECK(whichChannel, INT);
+	// Horror Tour 2 calls this with a void argument
+	TYPECHECK2(whichChannel, INT, VOID);
+	int channel = whichChannel.u.i;
+	if (whichChannel.type == VOID) {
+		channel = 1;
+	}
 
-	bool isBusy = sound->isChannelActive(whichChannel.u.i);
+	bool isBusy = sound->isChannelActive(channel);
 	Datum result;
 	result.type = INT;
 	result.u.i = isBusy ? 1 : 0;

@@ -128,6 +128,9 @@ void FreescapeEngine::traverseEntrance(uint16 entranceID) {
 	}
 
 	_pitch = rotation.x();
+	// This is a workaround to avoid the camera looking at direct angles,
+	// polygons tends to disappear where the colinear
+	_pitch++;
 	if (rotation.y() > 0 && rotation.y() <= 45)
 		_yaw = rotation.y();
 	else if (rotation.y() <= 0 || (rotation.y() >= 180 && rotation.y() < 270))
@@ -151,6 +154,7 @@ void FreescapeEngine::traverseEntrance(uint16 entranceID) {
 	_position.setValue(1, _position.y() + _playerHeight);
 
 	_sensors = _currentArea->getSensors();
+	_gfx->_scale = _currentArea->_scale;
 }
 
 void FreescapeEngine::activate() {
@@ -179,7 +183,7 @@ void FreescapeEngine::activate() {
 void FreescapeEngine::shoot() {
 	playSound(1, false);
 	g_system->delayMillis(2);
-	_shootingFrames = 4;
+	_shootingFrames = 10;
 
 	Common::Point center(_viewArea.left + _viewArea.width() / 2, _viewArea.top + _viewArea.height() / 2);
 	float xoffset = _crossairPosition.x - center.x;
@@ -326,6 +330,7 @@ void FreescapeEngine::move(CameraMovement direction, uint8 scale, float deltaTim
 	//debugC(1, kFreescapeDebugMove, "player height: %f", _position.y() - areaScale * _playerHeight);
 	if (_currentArea->getAreaID() == previousAreaID)
 		executeMovementConditions();
+	_gotoExecuted = false;
 	clearGameBit(31);
 }
 
@@ -338,9 +343,10 @@ void FreescapeEngine::resolveCollisions(Math::Vector3d const position) {
 	Math::Vector3d newPosition = position;
 	Math::Vector3d lastPosition = _lastPosition;
 
-	int previousAreaID = _currentArea->getAreaID();
+	_gotoExecuted = false;
 	bool executed = runCollisionConditions(lastPosition, newPosition);
-	if (_currentArea->getAreaID() != previousAreaID) {
+	if (_gotoExecuted) {
+		_gotoExecuted = false;
 		return;
 	}
 
@@ -359,10 +365,10 @@ void FreescapeEngine::resolveCollisions(Math::Vector3d const position) {
 	if ((lastPosition - newPosition).length() < 1) { // If the player has not moved
 		// Try to step up
 		newPosition = position;
-		newPosition.y() = newPosition.y() + 64;
+		newPosition.y() = newPosition.y() + _stepUpDistance;
 
 		lastPosition = _lastPosition;
-		lastPosition.y() = lastPosition.y() + 64;
+		lastPosition.y() = lastPosition.y() + _stepUpDistance;
 
 		newPosition = _currentArea->resolveCollisions(lastPosition, newPosition, _playerHeight);
 	}

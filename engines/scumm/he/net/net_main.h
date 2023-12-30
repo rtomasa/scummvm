@@ -53,10 +53,10 @@ private:
 		bool local = false; ///< Indicates if session is found over LAN.
 		int id = -1;
 		Common::String host;
-		int port;
+		int port = 0;
 		Common::String name;
-		int players;
-		uint32 timestamp;
+		int players = 0;
+		uint32 timestamp = 0;
 	};
 	/**
 	 * Converts a formatted string into an Address object.
@@ -552,10 +552,6 @@ private:
 	bool _gotSessions;
 	int _sessionServerPeer;
 	bool _isRelayingGame; ///< If we're relaying in-game data over the session server or not.
-
-	// Used to determine net lag between players.
-	int _savedTime;
-	bool _waitForTimedResp;
 };
 
 } // End of namespace Scumm

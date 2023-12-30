@@ -197,6 +197,8 @@ _enable_tsan=no
 _enable_ubsan=no
 _bink=yes
 _cloud=auto
+_dlc=no
+_scummvmdlc=no
 _pandoc=no
 _curl=yes
 _lld=no
@@ -958,6 +960,8 @@ Optional Features:
   --disable-cloud          don't build cloud support
   --disable-system-dialogs don't build support for system dialogs
   --enable-vkeybd          build virtual keyboard support
+  --enable-dlc             build scummvm dlc downloading support
+  --enable-scummvmdlc      build scummvm dlc downloading support using ScummVM Cloud
   --enable-eventrecorder   enable event recording functionality
   --disable-eventrecorder  disable event recording functionality
   --enable-updates         build support for updates
@@ -1159,6 +1163,7 @@ for ac_option in $@; do
 	--includedir=*)                                      ;;
 	--libexecdir=*)                                      ;;
 	--localstatedir=*)                                   ;;
+	--runstatedir=*)                                     ;;
 	--sharedstatedir=*)                                  ;;
 	--infodir=*)                                         ;;
 	--disable-dependency-tracking)                       ;;
@@ -1251,6 +1256,10 @@ for ac_option in $@; do
 	--disable-enet)               _enet=no               ;;
 	--enable-cloud)               _cloud=yes             ;;
 	--disable-cloud)              _cloud=no              ;;
+	--enable-dlc)                 _dlc=yes               ;;
+	--disable-dlc)                _dlc=no                ;;
+	--enable-scummvmdlc)          _scummvmdlc=yes        ;;
+	--disable-scummvmdlc)         _scummvmdlc=no         ;;
 	--enable-lld)                 _lld=yes               ;;
 	--disable-lld)                _lld=no                ;;
 	--enable-mold)                _mold=yes              ;;
@@ -1729,10 +1738,10 @@ kos32)
 	_host_cpu=i686
 	_host_alias=kos32
 	;;
-m68k-atari-mint)
+m68k-atari-mint*)
 	_host_os=mint
 	_host_cpu=m68k
-	_host_alias=m68k-atari-mint
+	_host_alias=$_host
 	;;
 maemo)
 	_host_os=maemo
@@ -2446,8 +2455,15 @@ if test "$_debug_build" != no; then
 	echo_n -- "$debug_mode"
 
 	echo "int main() { return 0; }" > $TMPC
-	if `which $_dwp >/dev/null 2>&1` && cc_check_no_clean $debug_mode -gsplit-dwarf && `$_dwp -e $TMPO -o /dev/null >/dev/null 2>&1`; then
-		append_var CXXFLAGS "-gsplit-dwarf"
+
+	# HACK: The default DWARF version "for most targets" is 5. However,
+	#       that version causes dwp to segfault. According to
+	#       https://sourceware.org/bugzilla/show_bug.cgi?id=26219 it just
+	#       isn't implemented, and there's no fix in sight. So we force
+	#       DWARF version 4 and hope that works for, well... "most targets".
+
+	if `which $_dwp >/dev/null 2>&1` && cc_check_no_clean $debug_mode -gsplit-dwarf -gdwarf-4 && `$_dwp -e $TMPO -o /dev/null >/dev/null 2>&1`; then
+		append_var CXXFLAGS "-gsplit-dwarf -gdwarf-4"
 		add_line_to_config_mk "SPLIT_DWARF = 1"
 		echo_n -- " + split DWARF"
 		if test "$_lld" = yes && cc_check_no_clean $debug_mode -gsplit-dwarf -fuse-ld=lld -Wl,--gdb-index; then
@@ -2564,7 +2580,7 @@ elif $_strings $TMPO$HOSTEXEEXT 2>> "$TMPLOG" | grep LiTTleEnDian >/dev/null; th
 	_endian=little
 fi
 echo $_endian;
-cc_check_clean tmp_endianness_check.cpp tmp_endianness_check.dwo
+cc_check_clean tmp_endianness_check.cpp $TMPO-tmp_endianness_check.dwo
 
 case $_endian in
 	big)
@@ -3664,6 +3680,7 @@ if test -n "$_host"; then
 			_backend="ios7"
 			_seq_midi=no
 			_timidity=no
+			_ext_neon=yes
 			;;
 		kos32)
 			# neither pkg-config nor *-config work, so we setup everything manually
@@ -3694,12 +3711,12 @@ if test -n "$_host"; then
 			add_line_to_config_mk 'KOS32_SDK_DIR = '"${KOS32_SDK_DIR}"
 			_port_mk="backends/platform/sdl/kolibrios/kolibrios.mk"
 			;;
-		m68k-atari-mint)
+		m68k-atari-mint*)
 			# auto -> yes (overriden by $_release_build = yes)
-			if test "$_debug_build" = "no"; then
-				# --disable-debug
-				append_var LDFLAGS "-s"
-			fi
+			#if test "$_debug_build" = "no"; then
+			#	# --disable-debug
+			#	append_var LDFLAGS "-s"
+			#fi
 
 			# auto -> no
 			if test "$_optimizations" = "yes"; then
@@ -3714,8 +3731,8 @@ if test -n "$_host"; then
 				# --enable-release
 				append_var DEFINES  "-DNDEBUG"
 				#append_var DEFINES  "-DDISABLE_TEXT_CONSOLE"
-				append_var CXXFLAGS "-I$HOME/gnu-tools/m68000/m68k-atari-mint/sys-root/opt/mintlib-dlmalloc/include"
-				append_var LDFLAGS  "-L$HOME/gnu-tools/m68000/m68k-atari-mint/sys-root/opt/mintlib-dlmalloc/lib/m68020-60"
+				append_var CXXFLAGS "-I$($_host_alias-gcc -print-sysroot)/opt/mintlib-dlmalloc/include"
+				append_var LDFLAGS  "-L$($_host_alias-gcc -print-sysroot)/opt/mintlib-dlmalloc/lib/m68020-60"
 			fi
 
 			_seq_midi=no
@@ -5797,11 +5814,8 @@ EOF
 			append_var LIBS "$LIBMIKMOD_LIBS"
 			append_var INCLUDES "$LIBMIKMOD_CFLAGS"
 		fi
-
-		echo "$_libmikmod"
-
 	fi
-
+	echo "$_libmikmod"
 fi
 
 define_in_config_if_yes "$_libmikmod" "USE_MIKMOD"
@@ -5829,6 +5843,15 @@ else
 	echo  # newline
 fi
 define_in_config_if_yes $_cloud 'USE_CLOUD'
+
+if test "$_scummvmdlc" = "yes"; then
+	if test "$_libcurl" = "yes"; then
+		_dlc=yes
+	fi
+fi
+
+define_in_config_if_yes $_dlc 'USE_DLC'
+define_in_config_if_yes $_scummvmdlc 'USE_SCUMMVMDLC'
 
 #
 # Check is NSDockTilePlugIn protocol is supported
@@ -7028,6 +7051,15 @@ fi
 if test "$_cloud" = yes ; then
 	echo_n ", cloud"
 fi
+
+if test "$_dlc" = yes ; then
+	echo_n ", dlc"
+fi
+
+if test "$_scummvmdlc" = yes ; then
+	echo_n ", scummvmdlc"
+fi
+
 if test "$_enet" = yes ; then
 	echo ", ENet"
 else

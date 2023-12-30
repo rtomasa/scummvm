@@ -22,6 +22,9 @@
 #include "freescape/freescape.h"
 #include "freescape/detection.h"
 
+#include "freescape/games/driller/driller.h"
+#include "freescape/games/eclipse/eclipse.h"
+
 namespace Freescape {
 
 static const PlainGameDescriptor freescapeGames[] = {
@@ -314,7 +317,7 @@ static const ADGameDescription gameDescriptions[] = {
 		},
 		Common::EN_ANY,
 		Common::kPlatformAmiga,
-		ADGF_UNSTABLE,
+		ADGF_TESTING,
 		GUIO1(GUIO_NOMIDI)
 	},
 	// Cinemaware release
@@ -357,7 +360,7 @@ static const ADGameDescription gameDescriptions[] = {
 		},
 		Common::EN_ANY,
 		Common::kPlatformDOS,
-		ADGF_UNSTABLE,
+		ADGF_TESTING,
 		GUIO3(GUIO_NOMIDI, GUIO_RENDEREGA, GUIO_RENDERCGA)
 	},
 	{
@@ -372,7 +375,7 @@ static const ADGameDescription gameDescriptions[] = {
 		},
 		Common::EN_ANY,
 		Common::kPlatformDOS,
-		ADGF_UNSTABLE,
+		ADGF_TESTING,
 		GUIO3(GUIO_NOMIDI, GUIO_RENDEREGA, GUIO_RENDERCGA)
 	},
 	{
@@ -387,7 +390,7 @@ static const ADGameDescription gameDescriptions[] = {
 		},
 		Common::EN_ANY,
 		Common::kPlatformDOS,
-		ADGF_UNSTABLE,
+		ADGF_TESTING,
 		GUIO3(GUIO_NOMIDI, GUIO_RENDEREGA, GUIO_RENDERCGA)
 	},
 	{
@@ -402,7 +405,7 @@ static const ADGameDescription gameDescriptions[] = {
 		},
 		Common::EN_ANY,
 		Common::kPlatformDOS,
-		ADGF_UNSTABLE | ADGF_DEMO,
+		ADGF_TESTING | ADGF_DEMO,
 		GUIO3(GUIO_NOMIDI, GUIO_RENDEREGA, GUIO_RENDERCGA)
 	},
 	{
@@ -414,7 +417,72 @@ static const ADGameDescription gameDescriptions[] = {
 		},
 		Common::EN_ANY,
 		Common::kPlatformZX,
+		ADGF_TESTING | ADGF_DEMO,
+		GUIO1(GUIO_NOMIDI)
+	},
+	{
+		"darkside",
+		"",
+		{
+			{"DARKSIDE.ZX.DATA", 0, "e840db278f1256d1d3a1a34d49644aee", 34460},
+			AD_LISTEND
+		},
+		Common::EN_ANY,
+		Common::kPlatformZX,
+		ADGF_TESTING,
+		GUIO1(GUIO_NOMIDI)
+	},
+	{
+		"darkside",
+		"",
+		{
+			{"DARKCODE.BIN", 0, "203ce55b7582c556c811acd6a1cf4ab6", 35385},
+			AD_LISTEND
+		},
+		Common::EN_ANY,
+		Common::kPlatformAmstradCPC,
+		ADGF_UNSTABLE,
+		GUIO2(GUIO_NOMIDI, GAMEOPTION_AUTOMATIC_DRILLING)
+	},
+	{
+		"totaleclipse",
+		"Demo",
+		{
+			{"TECON.BIN", 0, "990f9a5e6d29142f98d53e53b1e43cc9", 16512},
+			{"TEPROG.BIN", 0, "093a3a9a65c7914b93e13675fedafcc6", 29824},
+			AD_LISTEND
+		},
+		Common::EN_ANY,
+		Common::kPlatformAmstradCPC,
 		ADGF_UNSTABLE | ADGF_DEMO,
+		GUIO1(GUIO_NOMIDI)
+	},
+	{
+		"totaleclipse",
+		"Demo",
+		{
+			{"totaleclipse.zx.border", 0, "4df153a0c8986d1581b2aa58222c0eb8", 6912},
+			{"totaleclipse.zx.data", 0, "af0b6408fb63082ce2b6cd5985908be1", 28142},
+			{"totaleclipse.zx.title", 0, "1c1ab8a9994c1936e684b2980dba431b", 6912},
+			AD_LISTEND
+		},
+		Common::EN_ANY,
+		Common::kPlatformZX,
+		ADGF_UNSTABLE | ADGF_DEMO | GF_ZX_DEMO_MICROHOBBY,
+		GUIO1(GUIO_NOMIDI)
+	},
+	{
+		"totaleclipse",
+		"Demo",
+		{
+			{"totaleclipse.zx.border", 0, "4df153a0c8986d1581b2aa58222c0eb8", 6912},
+			{"totaleclipse.zx.data", 0, "13cd96820a65c84e63ca57c86f25881a", 29692},
+			{"totaleclipse.zx.title", 0, "b25897736ffcafee174f525cd1f14b42", 6912},
+			AD_LISTEND
+		},
+		Common::EN_ANY,
+		Common::kPlatformZX,
+		ADGF_UNSTABLE | ADGF_DEMO | GF_ZX_DEMO_CRASH,
 		GUIO1(GUIO_NOMIDI)
 	},
 	{

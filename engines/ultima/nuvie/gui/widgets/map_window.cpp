@@ -173,6 +173,8 @@ MapWindow::MapWindow(Configuration *cfg, Map *m): GUI_Widget(NULL, 0, 0, 0, 0) {
 
 	lighting_update_required = true;
 
+	game_started = false;
+
 	set_interface();
 }
 
@@ -285,13 +287,13 @@ bool MapWindow::set_windowSize(uint16 width, uint16 height) {
 	if (game->is_orig_style()) {
 		clip_rect.left = area.left + 8;
 		clip_rect.setWidth((win_width - 1) * 16);
-		clip_rect.setHeight((win_height - 1) * 16);
 
-		if (game_type == NUVIE_GAME_U6)
+		if (game_type == NUVIE_GAME_U6) {
 			clip_rect.top = area.top + 8;
-		else {
+			clip_rect.setHeight((win_height - 1) * 16);
+		} else {
 			clip_rect.top = area.top + 16;
-			clip_rect.bottom -= 16;
+			clip_rect.setHeight((win_height - 2) * 16);
 		}
 	} else {
 		clip_rect.left = game->get_game_x_offset();
@@ -303,6 +305,10 @@ bool MapWindow::set_windowSize(uint16 width, uint16 height) {
 		clip_rect.setHeight(game->get_game_height());
 	}
 	anim_manager->set_area(clip_rect);
+
+	Screen *const gameScreen = Game::get_game()->get_screen();
+	assert(gameScreen);
+	_mapWinSubSurf.create(*gameScreen->get_sdl_surface(), clip_rect);
 
 	reset_mousecenter();
 
@@ -614,7 +620,6 @@ bool MapWindow::in_window(uint16 x, uint16 y, uint8 z) {
 void MapWindow::update() {
 	GameClock *clock = game->get_clock();
 	Events *event = game->get_event();
-	static bool game_started = false; // set to true on the first update()
 	static uint32 last_update_time = clock->get_ticks();
 	uint32 update_time = clock->get_ticks();
 
@@ -1302,9 +1307,9 @@ void MapWindow::drawRoofs() {
 						}
 						SDL_BlitSurface(roof_tiles, &src, surface, &dst);
 					} else {
-						byte *ptr = (byte *)roof_tiles->getPixels();
-						ptr += src.left + src.top * 80;
-						screen->blit(dst.left, dst.top, ptr, 8, 16, 16, 80, true, &clip_rect);
+						src.setWidth(16);
+						src.setHeight(16);
+						_mapWinSubSurf.blitFrom(*roof_tiles, src, Common::Point(dst.left, dst.top));
 					}
 				}
 			}
@@ -2403,8 +2408,8 @@ void MapWindow::drawAnims(bool top_anims) {
 void MapWindow::update_mouse_cursor(uint32 mx, uint32 my) {
 	Events *event = game->get_event();
 	int wx = 0, wy = 0;
-	sint16 rel_x, rel_y;
-	uint8 mptr; // mouse-pointer is set here in get_movement_direction()
+	sint16 rel_x = 0, rel_y = 0;
+	uint8 mptr = 0; // mouse-pointer is set here in get_movement_direction()
 
 	if (event->get_mode() != MOVE_MODE && event->get_mode() != INPUT_MODE)
 		return;
@@ -2651,7 +2656,7 @@ void MapWindow::set_roof_mode(bool roofs) {
 void MapWindow::loadRoofTiles() {
 	Std::string imagefile = map->getRoofTilesetFilename();
 	roof_tiles = SDL_LoadBMP(imagefile.c_str());
-	if (roof_tiles && game->is_orig_style()) {
+	if (roof_tiles) {
 		SDL_SetColorKey(roof_tiles, SDL_TRUE, SDL_MapRGB(roof_tiles->format, 0, 0x70, 0xfc));
 	}
 }

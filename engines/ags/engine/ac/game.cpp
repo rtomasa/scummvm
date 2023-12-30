@@ -429,7 +429,8 @@ void unload_game_file() {
 	_G(scrDialog) = nullptr;
 
 	_GP(guis).clear();
-	free(_G(scrGui));
+	delete[] _G(scrGui);
+	_G(scrGui) = nullptr;
 
 	free_all_fonts();
 
@@ -990,7 +991,7 @@ HSaveError load_game(const String &path, int slotNumber, bool &data_overwritten)
 			loadDesc = &desc;
 			String gamefile = FindGameData(_GP(ResPaths).DataDir, TestGame);
 
-			if (Shared::File::TestReadFile(gamefile)) {
+			if (!gamefile.IsEmpty()) {
 				RunAGSGame(gamefile.GetCStr(), 0, 0);
 				_G(load_new_game_restore) = slotNumber;
 				return HSaveError::None();
@@ -1002,7 +1003,7 @@ HSaveError load_game(const String &path, int slotNumber, bool &data_overwritten)
 	// TODO: remove filename test after deprecating old saves
 	else if (desc.MainDataFilename.Compare(_GP(ResPaths).GamePak.Name)) {
 		String gamefile = Path::ConcatPaths(_GP(ResPaths).DataDir, desc.MainDataFilename);
-		if (Shared::File::TestReadFile(gamefile)) {
+		if (IsMainGameLibrary(gamefile)) {
 			RunAGSGame(desc.MainDataFilename, 0, 0);
 			_G(load_new_game_restore) = slotNumber;
 			return HSaveError::None();
@@ -1033,6 +1034,7 @@ bool try_restore_save(int slot) {
 
 bool try_restore_save(const Shared::String &path, int slot) {
 	bool data_overwritten;
+	Debug::Printf(kDbgMsg_Info, "Restoring saved game '%s'", path.GetCStr());
 	HSaveError err = load_game(path, slot, data_overwritten);
 	if (!err) {
 		String error = String::FromFormat("Unable to restore the saved game.\n%s",

@@ -54,6 +54,9 @@ struct SceneChangeDescription {
 	bool doNotStartSound;
 };
 
+// Note: in nancy6 and above, the textID field is ignored since all dialogue strings are bundled
+// inside the CONVO file's CVTX chunk (thus nancy.dat doesn't include any).
+// Instead, the soundID doubles as the key for the HashMap containing the CONVO data.
 struct ConditionalDialogue {
 	byte textID;
 	uint16 sceneID;
@@ -85,6 +88,11 @@ struct SoundChannelInfo {
 	Common::Array<byte> speechChannels; // 0 in the original engine
 	Common::Array<byte> musicChannels; // 1
 	Common::Array<byte> sfxChannels; // 2
+};
+
+struct PatchAssociation {
+	Common::Array<const char *> confManProps;
+	Common::Array<const char *> fileIDs;
 };
 
 #endif // CREATE_NANCY_TYPES_H

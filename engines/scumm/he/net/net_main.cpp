@@ -19,6 +19,7 @@
  *
  */
 
+#include "base/version.h"
 #include "common/config-manager.h"
 
 #include "scumm/he/intern_he.h"
@@ -47,6 +48,7 @@ Net::Net(ScummEngine_v90he *vm) : _latencyTime(1), _fakeLatency(false), _vm(vm) 
 
 	_sessionServerPeer = -1;
 	_sessionServerHost = nullptr;
+	_gotSessions = false;
 	_isRelayingGame = false;
 
 	_numUsers = 0;
@@ -71,8 +73,6 @@ Net::Net(ScummEngine_v90he *vm) : _latencyTime(1), _fakeLatency(false), _vm(vm) 
 
 	_hostDataQueue = Common::Queue<Common::JSONValue *>();
 	_peerIndexQueue = Common::Queue<int>();
-
-	_waitForTimedResp = false;
 }
 
 Net::~Net() {
@@ -297,8 +297,8 @@ int Net::createSession(char *name) {
 			_sessionServerPeer = 0;
 			// Create session to the session server.
 			Common::String req = Common::String::format(
-				"{\"cmd\":\"host_session\",\"game\":\"%s\",\"version\":\"%s\",\"name\":\"%s\",\"maxplayers\":%d}",
-				_gameName.c_str(), _gameVersion.c_str(), name, _maxPlayers);
+				"{\"cmd\":\"host_session\",\"game\":\"%s\",\"version\":\"%s\",\"name\":\"%s\",\"maxplayers\":%d,\"scummvm_version\":\"%s\"}",
+				_gameName.c_str(), _gameVersion.c_str(), name, _maxPlayers, gScummVMFullVersion);
 			debugC(DEBUG_NETWORK, "NETWORK: Sending to session server: %s", req.c_str());
 			_sessionHost->send(req.c_str(), _sessionServerPeer);
 		} else {
@@ -428,7 +428,7 @@ int Net::endSession() {
 		_isShuttingDown = true;
 		// Send out any remaining data from the queue before shutting down.
 		while (_hostDataQueue.size()) {
-			if (_hostDataQueue.size() != _hostDataQueue.size())
+			if (_hostDataQueue.size() != _peerIndexQueue.size())
 				warning("NETWORK: Sizes of data and peer index queues does not match!  Expect some wonky stuff");
 			Common::JSONValue *json = _hostDataQueue.pop();
 			int peerIndex = _peerIndexQueue.pop();
@@ -600,8 +600,8 @@ int32 Net::updateQuerySessions() {
 	if (_sessionServerHost) {
 		// Get internet-based sessions from the session server.
 		Common::String getSessions = Common::String::format(
-			"{\"cmd\":\"get_sessions\",\"game\":\"%s\",\"version\":\"%s\"}",
-			_gameName.c_str(), _gameVersion.c_str());
+			"{\"cmd\":\"get_sessions\",\"game\":\"%s\",\"version\":\"%s\",\"scummvm_version\":\"%s\"}",
+			_gameName.c_str(), _gameVersion.c_str(), gScummVMFullVersion);
 		_sessionServerHost->send(getSessions.c_str(), 0);
 
 		_gotSessions = false;
@@ -763,11 +763,6 @@ int Net::remoteSendData(int typeOfSend, int sendTypeParam, int type, Common::Str
 		_peerIndexQueue.push(sendTypeParam - 1);
 	} else {
 		_sessionHost->send(res.c_str(), 0, 0, reliable);
-		if (typeOfSend == PN_SENDTYPE_ALL_RELIABLE_TIMED) {
-			// Wait for a response to determine net lag.
-			_savedTime = g_system->getMillis();
-			_waitForTimedResp = true;
-		}
 	}
 	return defaultRes;
 }
@@ -1158,15 +1153,10 @@ void Net::remoteReceiveData() {
 			if (_gameName == "moonbase") {
 				// TODO: Host migration
 				if (!_isHost && _vm->_currentRoom == 2) {
-					_vm->displayMessage(0, "You have been disconnected from the host.\nNormally, host migration would take place, but ScummVM doesn't do that yet, so this game session will now end." );
+					_vm->displayMessage(0, "You have been disconnected from the game host.\nNormally, host migration would take place, but ScummVM doesn't do that yet, so this game session will now end.");
 					_vm->VAR(253) = 26; // gGameMode = GAME-OVER
 					_vm->runScript(2104, 1, 0, 0); // leave-game
 				}
-			} else {
-				// Football/Baseball
-
-				// We have lost our only other opponent, do not wait for a timed response.
-				_waitForTimedResp = false;
 			}
 			break;
 		}
@@ -1267,9 +1257,6 @@ void Net::doNetworkOnceAFrame(int msecs) {
 	if (!_enet || !_sessionHost)
 		return;
 
-	uint tickCount = 0;
-
-receiveData:
 	remoteReceiveData();
 
 	if (_sessionServerHost)
@@ -1279,24 +1266,11 @@ receiveData:
 		serviceBroadcast();
 
 	if (_isHost && _hostDataQueue.size()) {
-		if (_hostDataQueue.size() != _hostDataQueue.size())
+		if (_hostDataQueue.size() != _peerIndexQueue.size())
 			warning("NETWORK: Sizes of data and peer index queues does not match!  Expect some wonky stuff");
 		Common::JSONValue *json = _hostDataQueue.pop();
 		int peerIndex = _peerIndexQueue.pop();
 		handleGameDataHost(json, peerIndex);
-	}
-
-	if (_waitForTimedResp) {
-		g_system->delayMillis(msecs);
-
-		// Wait for 3 seconds for a response before giving up.
-		tickCount += msecs;
-		if (tickCount >= 3000) {
-			_savedTime = 0;
-			_waitForTimedResp = false;
-			return;
-		}
-		goto receiveData;
 	}
 }
 
@@ -1304,7 +1278,6 @@ void Net::handleGameData(Common::JSONValue *json, int peerIndex) {
 	if (!_enet || !_sessionHost)
 		return;
 	_fromUserId = json->child("from")->asIntegerNumber();
-	uint to = json->child("to")->asIntegerNumber();
 	uint type = json->child("type")->asIntegerNumber();
 
 	uint32 *params;
@@ -1319,7 +1292,7 @@ void Net::handleGameData(Common::JSONValue *json, int peerIndex) {
 				if (paramsArray[0]->asIntegerNumber() == 145 && _fromUserId == 1) {
 					if (!_isHost && _vm->_currentRoom == 2) {
 						// TODO: Host migration
-						_vm->displayMessage(0, "You have been disconnected from the host.\nNormally, host migration would take place, but ScummVM doesn't do that yet, so this game session will now end.");
+						_vm->displayMessage(0, "You have been disconnected from the game host.\nNormally, host migration would take place, but ScummVM doesn't do that yet, so this game session will now end.");
 						_vm->VAR(253) = 26; // GAME-OVER
 						_vm->runScript(2104, 1, 0, 0); // leave-game
 						return;
@@ -1420,25 +1393,9 @@ void Net::handleGameData(Common::JSONValue *json, int peerIndex) {
 			_vm->runScript(_vm->VAR(_vm->VAR_NETWORK_RECEIVE_ARRAY_SCRIPT), 1, 0, (int *)_tmpbuffer);
 		}
 		break;
-	case PACKETTYPE_RELIABLETIMEDRESP:
-		{
-			int savedTime = ((g_system->getMillis() - _savedTime) / 2) ;	//div by 2 for one-way lag.
-			_vm->VAR(_vm->VAR_NETWORK_NET_LAG) = savedTime;
-			_waitForTimedResp = false;
-		}
-		break;
-
 	default:
 		warning("NETWORK: Received unknown network command %d", type);
 	}
-
-	if (to == PN_SENDTYPE_ALL_RELIABLE_TIMED) {
-		if (_fromUserId != _myUserId) {
-			// Send a response
-			remoteSendData(PN_SENDTYPE_INDIVIDUAL, _fromUserId, PACKETTYPE_RELIABLETIMEDRESP, "", PN_PRIORITY_HIGH);
-		}
-	}
-
 }
 
 void Net::handleGameDataHost(Common::JSONValue *json, int peerIndex) {
@@ -1495,17 +1452,6 @@ void Net::handleGameDataHost(Common::JSONValue *json, int peerIndex) {
 						}
 					} else
 						_sessionHost->send(str.c_str(), i, 0, reliable);
-				}
-			}
-
-			if (to == PN_SENDTYPE_ALL_RELIABLE_TIMED) {
-				if (from == _myUserId) {
-					// That's us, wait for a response to determine net lag.
-					// Don't wait if we're the only ones here (our opponent disconnected).
-					if (getTotalPlayers() > 1) {
-						_savedTime = g_system->getMillis();
-						_waitForTimedResp = true;
-					}
 				}
 			}
 		}

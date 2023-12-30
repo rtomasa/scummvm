@@ -22,7 +22,7 @@
 #define EMU_WAITING    (1 << 0)
 #define MAIN_WAITING   (1 << 1)
 #define EMU_EXITED     (1 << 2)
-static uint8_t status = EMU_WAITING | MAIN_WAITING;
+static uint8 status = EMU_WAITING | MAIN_WAITING;
 static int scummvm_res = -1;
 
 #ifdef USE_LIBCO
@@ -121,13 +121,6 @@ void retro_switch_to_emu_thread() {
 
 void retro_switch_to_main_thread() {
 	retro_exit_to_main_thread();
-#ifndef USE_LIBCO
-	status |= EMU_WAITING;
-	while (status & EMU_WAITING) {
-		scond_wait(emu_cond, emu_lock);
-	}
-	slock_unlock(emu_lock);
-#endif
 }
 
 bool retro_emu_thread_initialized() {

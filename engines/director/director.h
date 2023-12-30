@@ -84,6 +84,7 @@ enum {
 	kDebugSound			= 1 << 19,
 	kDebugConsole		= 1 << 20,
 	kDebugXObj			= 1 << 21,
+	kDebugLingoThe		= 1 << 22,
 };
 
 enum {
@@ -206,6 +207,8 @@ public:
 	void draw();
 
 	Graphics::MacDrawPixPtr getInkDrawPixel();
+	uint32 getColorBlack();
+	uint32 getColorWhite();
 
 	void loadKeyCodes();
 	void setMachineType(int machineType);

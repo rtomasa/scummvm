@@ -59,7 +59,6 @@ enum CameraMovement {
 typedef Common::HashMap<uint16, Area *> AreaMap;
 typedef Common::Array<byte *> ColorMap;
 typedef Common::HashMap<uint16, int32> StateVars;
-typedef Common::HashMap<uint16, uint32> StateBits;
 
 enum {
 	kFreescapeDebugMove = 1 << 0,
@@ -68,15 +67,15 @@ enum {
 	kFreescapeDebugMedia = 1 << 4,
 };
 
-struct entrancesTableEntry {
-	int id;
-	int position[3];
-};
-
 struct soundFx {
 	int size;
 	int sampleRate;
 	byte *data;
+};
+
+struct CGAPaletteEntry {
+	int areaId;
+	byte *palette;
 };
 
 class SizedPCSpeaker : public Audio::PCSpeaker {
@@ -176,6 +175,8 @@ public:
 	Graphics::ManagedSurface *loadAndCenterScrImage(Common::SeekableReadStream *stream);
 	void loadPalettes(Common::SeekableReadStream *file, int offset);
 	void swapPalette(uint16 areaID);
+	virtual byte *findCGAPalette(uint16 levelID);
+	const CGAPaletteEntry *_rawCGAPaletteByArea;
 	Common::HashMap<uint16, byte *> _paletteByArea;
 	void loadColorPalette();
 
@@ -204,17 +205,23 @@ public:
 	Group *load8bitGroupV2(Common::SeekableReadStream *file, byte rawFlagsAndType);
 
 	void loadGlobalObjects(Common::SeekableReadStream *file, int offset, int size);
-	void renderPixels8bitBinImage(Graphics::ManagedSurface *surface, int &i, int &j, uint8 pixels, int color);
+	void renderPixels8bitBinImage(Graphics::ManagedSurface *surface, int row, int column, int bit, int count);
 
 	void renderPixels8bitBinCGAImage(Graphics::ManagedSurface *surface, int &i, int &j, uint8 pixels, int color);
 	void renderPixels8bitBinEGAImage(Graphics::ManagedSurface *surface, int &i, int &j, uint8 pixels, int color);
 
 	Graphics::ManagedSurface *load8bitBinImage(Common::SeekableReadStream *file, int offset);
+	void load8bitBinImageRow(Common::SeekableReadStream *file, Graphics::ManagedSurface *surface, int row);
+	void load8bitBinImageRowIteration(Common::SeekableReadStream *file, Graphics::ManagedSurface *surface, int row, int bit);
+	int execute8bitBinImageCommand(Common::SeekableReadStream *file, Graphics::ManagedSurface *surface, int row, int pixels, int bit);
+	int execute8bitBinImageSingleCommand(Common::SeekableReadStream *file, Graphics::ManagedSurface *surface, int row, int pixels, int bit, int count);
+	int execute8bitBinImageMultiCommand(Common::SeekableReadStream *file, Graphics::ManagedSurface *surface, int row, int pixels, int bit, int count);
 
 	// Areas
 	uint16 _startArea;
 	AreaMap _areaMap;
 	Area *_currentArea;
+	bool _gotoExecuted;
 	Math::Vector3d _scale;
 
 	virtual void gotoArea(uint16 areaID, int entranceID);
@@ -281,6 +288,7 @@ public:
 	uint16 _playerHeight;
 	uint16 _playerWidth;
 	uint16 _playerDepth;
+	uint16 _stepUpDistance;
 
 	int _playerStepIndex;
 	Common::Array<int> _playerSteps;
@@ -373,6 +381,8 @@ public:
 
 	void loadMessagesFixedSize(Common::SeekableReadStream *file, int offset, int size, int number);
 	virtual void loadMessagesVariableSize(Common::SeekableReadStream *file, int offset, int number);
+	void drawFullscreenMessageAndWait(Common::String message);
+	void drawFullscreenMessage(Common::String message, uint32 front, Graphics::Surface *surface);
 
 	void loadFonts(Common::SeekableReadStream *file, int offset);
 	void loadFonts(byte *font, int charNumber);
@@ -388,9 +398,10 @@ public:
 	void setGameBit(int index);
 	void clearGameBit(int index);
 	void toggleGameBit(int index);
+	uint16 getGameBit(int index);
 
 	StateVars _gameStateVars;
-	StateBits _gameStateBits;
+	uint32 _gameStateBits;
 	virtual bool checkIfGameEnded();
 	bool _forceEndGame;
 	bool _playerWasCrushed;
@@ -431,183 +442,6 @@ public:
 
 	// Random
 	Common::RandomSource *_rnd;
-};
-
-enum DrillerReleaseFlags {
-		GF_AMIGA_RETAIL = (1 << 0),
-		GF_AMIGA_BUDGET = (1 << 1),
-		GF_ZX_RETAIL = (1 << 2),
-		GF_ZX_BUDGET = (1 << 3),
-		GF_ZX_DISC = (1 << 4),
-		GF_CPC_RETAIL = (1 << 5),
-		GF_CPC_RETAIL2 = (1 << 6),
-		GF_CPC_BUDGET = (1 << 7),
-		GF_CPC_VIRTUALWORLDS = (1 << 8),
-		GF_ATARI_RETAIL = (1 << 9),
-		GF_ATARI_BUDGET = (1 << 10),
-		GF_AMIGA_MAGAZINE_DEMO = (1 << 11),
-		GF_ATARI_MAGAZINE_DEMO = (1 << 12),
-};
-
-class DrillerEngine : public FreescapeEngine {
-public:
-	DrillerEngine(OSystem *syst, const ADGameDescription *gd);
-	~DrillerEngine();
-
-	uint32 _initialJetEnergy;
-	uint32 _initialJetShield;
-
-	uint32 _initialTankEnergy;
-	uint32 _initialTankShield;
-
-	bool _useAutomaticDrilling;
-
-	Common::HashMap<uint16, uint32> _drillStatusByArea;
-	Common::HashMap<uint16, uint32> _drillMaxScoreByArea;
-	Common::HashMap<uint16, uint32> _drillSuccessByArea;
-
-	void initGameState() override;
-	bool checkIfGameEnded() override;
-
-	void gotoArea(uint16 areaID, int entranceID) override;
-
-	void drawInfoMenu() override;
-	void drawSensorShoot(Sensor *sensor) override;
-
-	void pressedKey(const int keycode) override;
-	Common::Error saveGameStreamExtended(Common::WriteStream *stream, bool isAutosave = false) override;
-	Common::Error loadGameStreamExtended(Common::SeekableReadStream *stream) override;
-
-private:
-	bool drillDeployed(Area *area);
-	GeometricObject *_drillBase;
-	Math::Vector3d drillPosition();
-	void addDrill(const Math::Vector3d position, bool gasFound);
-	bool checkDrill(const Math::Vector3d position);
-	void removeDrill(Area *area);
-	void addSkanner(Area *area);
-
-	void loadAssetsFullGame() override;
-	void loadAssetsAtariFullGame() override;
-	void loadAssetsAtariDemo() override;
-	void loadAssetsAmigaFullGame() override;
-	void loadAssetsAmigaDemo() override;
-	void loadAssetsDOSFullGame() override;
-	void loadAssetsDOSDemo() override;
-	void loadAssetsZXFullGame() override;
-	void loadAssetsCPCFullGame() override;
-	void loadAssetsC64FullGame() override;
-
-	void drawDOSUI(Graphics::Surface *surface) override;
-	void drawZXUI(Graphics::Surface *surface) override;
-	void drawCPCUI(Graphics::Surface *surface) override;
-	void drawC64UI(Graphics::Surface *surface) override;
-	void drawAmigaAtariSTUI(Graphics::Surface *surface) override;
-	bool onScreenControls(Common::Point mouse) override;
-	void initAmigaAtari();
-	void initDOS();
-	void initZX();
-	void initCPC();
-	void initC64();
-
-	void updateTimeVariables() override;
-
-	Common::Rect _moveFowardArea;
-	Common::Rect _moveLeftArea;
-	Common::Rect _moveRightArea;
-	Common::Rect _moveBackArea;
-	Common::Rect _moveUpArea;
-	Common::Rect _moveDownArea;
-	Common::Rect _deployDrillArea;
-	Common::Rect _infoScreenArea;
-	Common::Rect _saveGameArea;
-	Common::Rect _loadGameArea;
-
-	Graphics::ManagedSurface *load8bitTitleImage(Common::SeekableReadStream *file, int offset);
-	Graphics::ManagedSurface *load8bitDemoImage(Common::SeekableReadStream *file, int offset);
-
-	uint32 getPixel8bitTitleImage(int index);
-	void renderPixels8bitTitleImage(Graphics::ManagedSurface *surface, int &i, int &j, int pixels);
-
-	Common::SeekableReadStream *decryptFileAtari(const Common::String filename);
-};
-
-struct ECD {
-	uint16 _area;
-	int _id;
-};
-
-class DarkEngine : public FreescapeEngine {
-public:
-	DarkEngine(OSystem *syst, const ADGameDescription *gd);
-
-	uint32 _initialEnergy;
-	uint32 _initialShield;
-	uint32 _jetFuelSeconds;
-	void addSkanner(Area *area);
-
-	void initGameState() override;
-	void borderScreen() override;
-	bool checkIfGameEnded() override;
-
-	void gotoArea(uint16 areaID, int entranceID) override;
-	void pressedKey(const int keycode) override;
-	void executePrint(FCLInstruction &instruction) override;
-
-	void initDOS();
-	void initAmigaAtari();
-	void initZX();
-
-	void loadAssetsDOSFullGame() override;
-	void loadAssetsDOSDemo() override;
-	void loadAssetsAmigaFullGame() override;
-
-	void loadAssetsZXDemo() override;
-	void loadMessagesVariableSize(Common::SeekableReadStream *file, int offset, int number) override;
-
-	int _lastTenSeconds;
-	int _lastSecond;
-	void updateTimeVariables() override;
-
-	void drawBinaryClock(Graphics::Surface *surface, int xPosition, int yPosition, uint32 front, uint32 back);
-	void drawIndicator(Graphics::Surface *surface, int xPosition, int yPosition);
-
-	void drawSensorShoot(Sensor *sensor) override;
-	void drawDOSUI(Graphics::Surface *surface) override;
-	void drawZXUI(Graphics::Surface *surface) override;
-	void drawAmigaAtariSTUI(Graphics::Surface *surface) override;
-
-
-	void drawInfoMenu() override;
-	void drawFullscreenMessageAndWait(Common::String message);
-	void drawFullscreenMessage(Common::String message, uint32 front, Graphics::Surface *surface);
-
-	Common::Error saveGameStreamExtended(Common::WriteStream *stream, bool isAutosave = false) override;
-	Common::Error loadGameStreamExtended(Common::SeekableReadStream *stream) override;
-
-private:
-	void addECDs(Area *area);
-	void addECD(Area *area, const Math::Vector3d position, int index);
-	void restoreECD(Area *area, int index);
-	bool checkECD(uint16 areaID, int index);
-	bool tryDestroyECD(int index);
-	bool tryDestroyECDFullGame(int index);
-	void addWalls(Area *area);
-	Common::SeekableReadStream *decryptFile(const Common::String filename);
-	Common::HashMap<uint16, bool> _exploredAreas;
-};
-
-class EclipseEngine : public FreescapeEngine {
-public:
-	EclipseEngine(OSystem *syst, const ADGameDescription *gd);
-
-	void gotoArea(uint16 areaID, int entranceID) override;
-
-	void loadAssetsDOSFullGame() override;
-	void drawUI() override;
-
-	Common::Error saveGameStreamExtended(Common::WriteStream *stream, bool isAutosave = false) override;
-	Common::Error loadGameStreamExtended(Common::SeekableReadStream *stream) override;
 };
 
 class CastleEngine : public FreescapeEngine {

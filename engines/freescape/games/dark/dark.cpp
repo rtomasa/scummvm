@@ -34,6 +34,8 @@ DarkEngine::DarkEngine(OSystem *syst, const ADGameDescription *gd) : FreescapeEn
 		initDOS();
 	else if (isSpectrum())
 		initZX();
+	else if (isCPC())
+		initCPC();
 	else if (isAmiga() || isAtariST())
 		initAmigaAtari();
 
@@ -44,6 +46,7 @@ DarkEngine::DarkEngine(OSystem *syst, const ADGameDescription *gd) : FreescapeEn
 	_playerHeight = _playerHeights[_playerHeightNumber];
 	_playerWidth = 12;
 	_playerDepth = 32;
+	_stepUpDistance = 64;
 	_lastTenSeconds = -1;
 	_lastSecond = -1;
 
@@ -93,6 +96,7 @@ void DarkEngine::addWalls(Area *area) {
 		if (target > 0) {
 			area->addObjectFromArea(id, _areaMap[255]);
 			GeometricObject *gobj = (GeometricObject *)area->objectWithID(id);
+			assert(gobj);
 			assert((*(gobj->_condition[0]._thenInstructions))[0].getType() == Token::Type::GOTO);
 			assert((*(gobj->_condition[0]._thenInstructions))[0]._destination == 0);
 			(*(gobj->_condition[0]._thenInstructions))[0].setSource(target);
@@ -128,12 +132,13 @@ void DarkEngine::addECD(Area *area, const Math::Vector3d position, int index) {
 	}
 }
 
-void DarkEngine::restoreECD(Area *area, int index) {
+void DarkEngine::restoreECD(Area &area, int index) {
 	Object *obj = nullptr;
 	int16 id = 227 + index * 6;
 	for (int i = 0; i < 4; i++) {
 		debugC(1, kFreescapeDebugParser, "Restoring object %d to from ECD %d", id, index);
-		obj = (GeometricObject *)area->objectWithID(id);
+		obj = (GeometricObject *)area.objectWithID(id);
+		assert(obj);
 		obj->restore();
 		obj->makeVisible();
 		id--;
@@ -164,10 +169,10 @@ void DarkEngine::initGameState() {
 	for (int i = 0; i < k8bitMaxVariable; i++) // TODO: check maximum variable
 		_gameStateVars[i] = 0;
 
-	for (auto &it : _areaMap) {
+	for (auto &it : _areaMap)
 		it._value->resetArea();
-		_gameStateBits[it._key] = 0;
-	}
+
+	_gameStateBits = 0;
 
 	_gameStateVars[k8bitVariableEnergy] = _initialEnergy;
 	_gameStateVars[k8bitVariableShield] = _initialShield;
@@ -356,15 +361,13 @@ void DarkEngine::addSkanner(Area *area) {
 bool DarkEngine::checkIfGameEnded() {
 	if (_gameStateVars[kVariableDarkECD] > 0) {
 		int index = _gameStateVars[kVariableDarkECD] - 1;
-		//insertTemporaryMessage(Common::String::format("%-14d", _gameStateVars[kVariableDarkECD] - 1), _countdown - 2);
-		//restoreECD(_currentArea, _gameStateVars[kVariableDarkECD] - 1);
 		bool destroyed = tryDestroyECD(index);
 		if (destroyed) {
 			_gameStateVars[kVariableActiveECDs] -= 4;
 			_gameStateVars[k8bitVariableScore] += 52750;
 			insertTemporaryMessage(_messagesList[2], _countdown - 2);
 		} else {
-			restoreECD(_currentArea, index);
+			restoreECD(*_currentArea, index);
 			insertTemporaryMessage(_messagesList[1], _countdown - 2);
 		}
 		_gameStateVars[kVariableDarkECD] = 0;
@@ -426,8 +429,6 @@ bool DarkEngine::checkIfGameEnded() {
 
 void DarkEngine::gotoArea(uint16 areaID, int entranceID) {
 	debugC(1, kFreescapeDebugMove, "Jumping to area: %d, entrance: %d", areaID, entranceID);
-	if (!_gameStateBits.contains(areaID))
-		_gameStateBits[areaID] = 0;
 
 	if (!_exploredAreas.contains(areaID)) {
 		_gameStateVars[k8bitVariableScore] += 17500;
@@ -442,6 +443,8 @@ void DarkEngine::gotoArea(uint16 areaID, int entranceID) {
 	}
 
 	assert(_areaMap.contains(areaID));
+	int16 previousArea = _currentArea ? _currentArea->getAreaID() : -127;
+	bool sameArea = areaID == previousArea;
 	_currentArea = _areaMap[areaID];
 	_currentArea->show();
 
@@ -451,26 +454,58 @@ void DarkEngine::gotoArea(uint16 areaID, int entranceID) {
 	int scale = _currentArea->getScale();
 	assert(scale > 0);
 
-	if (entranceID > 0 || areaID == 127) {
-		traverseEntrance(entranceID);
-	} else if (entranceID == 0) {
+	if (sameArea || entranceID == 0) {
 		int newPos = -1;
+		/*
+		This code needed some modificatins to deal with the area transition
+		in the poles. Only the light side is considered, since the dark side
+		pole is only reached at the end of the game using a single path.
+		*/
 		if (_position.z() < 200 || _position.z() >= 3800) {
 			if (_position.z() < 200)
 				newPos = 4000;
 			else
 				newPos = 100;
-			_position.setValue(2, newPos);
+			// Correct position and yaw for transtions to and from the light side
+			if (previousArea == 14 && areaID == 18) {
+				_position.setValue(2, _position.x());
+				_position.setValue(0, 100);
+				_yaw = 0;
+			} else if (previousArea == 18 && areaID == 17) {
+				_yaw = 90;
+			} else if (previousArea == 17 && areaID == 18) {
+				_yaw = 90;
+			} else if (previousArea == 16 && areaID == 18) {
+				_position.setValue(2, 4000 - _position.x());
+				_position.setValue(0, 4000);
+				_yaw = 180;
+			} else
+				_position.setValue(2, newPos);
 		} else if(_position.x() < 200 || _position.x() >= 3800)  {
 			if (_position.x() < 200)
 				newPos = 4000;
 			else
 				newPos = 100;
-			_position.setValue(0, newPos);
+			// Correct position and yaw for transtions to and from the light side
+			if (previousArea == 18 && areaID == 14) {
+				_position.setValue(0, _position.z());
+				_position.setValue(2, 100);
+				_yaw = 90;
+			} else if (previousArea == 18 && areaID == 16) {
+				_position.setValue(0, 4000 - _position.z());
+				_position.setValue(2, 100);
+				_yaw = 90;
+			} else
+				_position.setValue(0, newPos);
 		}
 		assert(newPos != -1);
 		_sensors = _currentArea->getSensors();
-	}
+	} else if (entranceID > 0 || areaID == 127)
+		traverseEntrance(entranceID);
+	else if (entranceID == -1)
+		debugC(1, kFreescapeDebugMove, "Loading game, no change in position");
+	else
+		error("Invalid area change!");
 
 	_lastPosition = _position;
 	_gameStateVars[0x1f] = 0;
@@ -485,11 +520,15 @@ void DarkEngine::gotoArea(uint16 areaID, int entranceID) {
 	playSound(5, false);
 	// Ignore sky/ground fields
 	_gfx->_keyColor = 0;
+	// Color remaps are not restored in Dark Side
+	// since they are used to simulate a fade to black effect
+	// that should not persist
+	_currentArea->_colorRemaps.clear();
 	_gfx->setColorRemaps(&_currentArea->_colorRemaps);
 
 	swapPalette(areaID);
-	_currentArea->_skyColor = 0;
-	_currentArea->_usualBackgroundColor = 0;
+	_currentArea->_skyColor = isCPC() ? 1 : 0;
+	_currentArea->_usualBackgroundColor = isCPC() ? 1 : 0;
 
 	resetInput();
 }
@@ -564,94 +603,6 @@ void DarkEngine::executePrint(FCLInstruction &instruction) {
 	insertTemporaryMessage(_messagesList[index], _countdown - 2);
 }
 
-void DarkEngine::drawFullscreenMessage(Common::String message, uint32 front, Graphics::Surface *surface) {
-	uint32 black = _gfx->_texturePixelFormat.ARGBToColor(0xFF, 0x00, 0x00, 0x00);
-	uint32 color = _gfx->_texturePixelFormat.ARGBToColor(0x00, 0x00, 0x00, 0x00);
-
-	surface->fillRect(_fullscreenViewArea, color);
-	surface->fillRect(_viewArea, black);
-	int x = 0;
-	int y = 0;
-	int letterPerLine = 0;
-	int numberOfLines = 0;
-
-	if (isDOS()) {
-		x = 50;
-		y = 32;
-		letterPerLine = 28;
-		numberOfLines = 10;
-	} else if (isSpectrum()) {
-		x = 60;
-		y = 35;
-		letterPerLine = 24;
-		numberOfLines = 12;
-	}
-
-	for (int i = 0; i < numberOfLines; i++) {
-		Common::String line = message.substr(letterPerLine * i, letterPerLine);
-		//debug("'%s' %d", line.c_str(), line.size());
-		drawStringInSurface(line, x, y, front, black, surface);
-		y = y + 8;
-	}
-
-	drawFullscreenSurface(surface);
-}
-
-void DarkEngine::drawFullscreenMessageAndWait(Common::String message) {
-	_savedScreen = _gfx->getScreenshot();
-	uint32 color = 0;
-	switch (_renderMode) {
-		case Common::kRenderCGA:
-			color = 1;
-			break;
-		case Common::kRenderZX:
-			color = 6;
-			break;
-		default:
-			color = 14;
-	}
-	uint8 r, g, b;
-	_gfx->readFromPalette(color, r, g, b);
-	uint32 front = _gfx->_texturePixelFormat.ARGBToColor(0xFF, r, g, b);
-
-	Graphics::Surface *surface = new Graphics::Surface();
-	surface->create(_screenW, _screenH, _gfx->_texturePixelFormat);
-
-	Common::Event event;
-	bool cont = true;
-	while (!shouldQuit() && cont) {
-		while (g_system->getEventManager()->pollEvent(event)) {
-
-			// Events
-			switch (event.type) {
-			case Common::EVENT_KEYDOWN:
-				if (event.kbd.keycode == Common::KEYCODE_SPACE) {
-					cont = false;
-				}
-				break;
-			case Common::EVENT_SCREEN_CHANGED:
-				_gfx->computeScreenViewport();
-				break;
-
-			default:
-				break;
-			}
-		}
-		drawBorder();
-		if (_currentArea)
-			drawUI();
-		drawFullscreenMessage(message, front, surface);
-		_gfx->flipBuffer();
-		g_system->updateScreen();
-		g_system->delayMillis(15); // try to target ~60 FPS
-	}
-
-	_savedScreen->free();
-	delete _savedScreen;
-	surface->free();
-	delete surface;
-}
-
 void DarkEngine::drawBinaryClock(Graphics::Surface *surface, int xPosition, int yPosition, uint32 front, uint32 back) {
 	int number = _ticks / 2;
 	int bits = 0;
@@ -664,6 +615,8 @@ void DarkEngine::drawBinaryClock(Graphics::Surface *surface, int xPosition, int 
 }
 
 void DarkEngine::drawIndicator(Graphics::Surface *surface, int xPosition, int yPosition) {
+	if (_indicators.size() == 0)
+		return;
 	if (_hasFallen)
 		surface->copyRectToSurface(*_indicators[0], xPosition, yPosition, Common::Rect(_indicators[0]->w, _indicators[0]->h));
 	else if (_flyMode)
@@ -692,6 +645,7 @@ void DarkEngine::drawSensorShoot(Sensor *sensor) {
 }
 
 void DarkEngine::drawInfoMenu() {
+	PauseToken pauseToken = pauseEngine();
 	_savedScreen = _gfx->getScreenshot();
 	uint32 color = 0;
 	switch (_renderMode) {
@@ -773,6 +727,7 @@ void DarkEngine::drawInfoMenu() {
 	delete _savedScreen;
 	surface->free();
 	delete surface;
+	pauseToken.clear();
 }
 
 void DarkEngine::loadMessagesVariableSize(Common::SeekableReadStream *file, int offset, int number) {

@@ -55,20 +55,22 @@ Renderer::Renderer(int screenW, int screenH, Common::RenderMode renderMode) {
 		}
 		_colorPair[i] = 0;
 	}
+
+	_scale = 1;
 }
 
 Renderer::~Renderer() {}
 
-extern byte getCPCPixel(byte cpc_byte, int index);
+extern byte getCPCPixel(byte cpc_byte, int index, bool mode0);
 
 byte getCPCStipple(byte cpc_byte, int back, int fore) {
-	int c0 = getCPCPixel(cpc_byte, 0);
+	int c0 = getCPCPixel(cpc_byte, 0, true);
 	assert(c0 == back || c0 == fore);
-	int c1 = getCPCPixel(cpc_byte, 1);
+	int c1 = getCPCPixel(cpc_byte, 1, true);
 	assert(c1 == back || c1 == fore);
-	int c2 = getCPCPixel(cpc_byte, 2);
+	int c2 = getCPCPixel(cpc_byte, 2, true);
 	assert(c2 == back || c2 == fore);
-	int c3 = getCPCPixel(cpc_byte, 3);
+	int c3 = getCPCPixel(cpc_byte, 3, true);
 	assert(c3 == back || c3 == fore);
 
 	byte st = 0;
@@ -138,7 +140,7 @@ void Renderer::fillColorPairArray() {
 		if (_renderMode == Common::kRenderCGA)
 			c1 = getCGAPixel(entry[0], 0);
 		else if (_renderMode == Common::kRenderCPC)
-			c1 = getCPCPixel(entry[0], 0);
+			c1 = getCPCPixel(entry[0], 0, true);
 		else
 			error("Not implemented");
 
@@ -150,7 +152,7 @@ void Renderer::fillColorPairArray() {
 				if (_renderMode == Common::kRenderCGA)
 					c = getCGAPixel(entry[j], k);
 				else if (_renderMode == Common::kRenderCPC)
-					c = getCPCPixel(entry[j], k);
+					c = getCPCPixel(entry[j], k, true);
 				else
 					error("Not implemented");
 				if (c1 != c) {
@@ -173,7 +175,7 @@ void Renderer::setColorMap(ColorMap *colorMap_) {
 		for (int i = 0; i < 15; i++) {
 			byte *entry = (*_colorMap)[i];
 			for (int j = 0; j < 128; j++)
-				_stipples[i][j] = entry[(j / 16) % 4];
+				_stipples[i][j] = entry[(j / 4) % 4];
 		}
 	} else if (_renderMode == Common::kRenderCPC) {
 		fillColorPairArray();
@@ -339,10 +341,6 @@ bool Renderer::getRGBAtZX(uint8 index, uint8 &r1, uint8 &g1, uint8 &b1, uint8 &r
 }
 
 void Renderer::selectColorFromFourColorPalette(uint8 index, uint8 &r1, uint8 &g1, uint8 &b1) {
-	if (_colorRemaps && _colorRemaps->contains(index)) {
-		index = (*_colorRemaps)[index];
-	}
-
 	if (index == 0) {
 		r1 = 0;
 		g1 = 0;
@@ -361,6 +359,22 @@ bool Renderer::getRGBAtCPC(uint8 index, uint8 &r1, uint8 &g1, uint8 &b1, uint8 &
 	if (index == _keyColor)
 		return false;
 
+	if (_colorRemaps && _colorRemaps->contains(index)) {
+		index = (*_colorRemaps)[index];
+		if (index == 0) {
+			r1 = g1 = b1 = 0;
+			r2 = r1;
+			g2 = g1;
+			b2 = b1;
+			return true;
+		}
+		readFromPalette(index, r1, g1, b1);
+		r2 = r1;
+		g2 = g1;
+		b2 = b1;
+		return true;
+	}
+
 	assert (_renderMode == Common::kRenderCPC);
 	if (index <= 4) { // Solid colors
 		selectColorFromFourColorPalette(index - 1, r1, g1, b1);
@@ -372,8 +386,8 @@ bool Renderer::getRGBAtCPC(uint8 index, uint8 &r1, uint8 &g1, uint8 &b1, uint8 &
 
 	stipple = (byte *)_stipples[index - 1];
 	byte *entry = (*_colorMap)[index - 1];
-	uint8 i1 = getCPCPixel(entry[0], 0);
-	uint8 i2 = getCPCPixel(entry[0], 1);
+	uint8 i1 = getCPCPixel(entry[0], 0, true);
+	uint8 i2 = getCPCPixel(entry[0], 1, true);
 	selectColorFromFourColorPalette(i1, r1, g1, b1);
 	selectColorFromFourColorPalette(i2, r2, g2, b2);
 	return true;
@@ -475,7 +489,7 @@ Graphics::Surface *Renderer::convertImageFormatIfNecessary(Graphics::ManagedSurf
 	surface->copyFrom(msurface->rawSurface());
 	byte *palette = (byte *)malloc(sizeof(byte) * 16 * 3);
 	msurface->grabPalette(palette, 0, 16); // Maximum should be 16 colours
-	surface->convertToInPlace(_texturePixelFormat, palette);
+	surface->convertToInPlace(_texturePixelFormat, palette, 0, 16);
 	free(palette);
 	return surface;
 }

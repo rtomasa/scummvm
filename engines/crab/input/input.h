@@ -80,8 +80,9 @@ enum InputType {
 };
 
 enum KeyBindingMode {
-	KBM_GAME = 0,
-	KBM_UI = 1
+	KBM_NONE = 0,
+	KBM_GAME = 1,
+	KBM_UI = 2
 };
 
 // Constants related to menu size
@@ -139,6 +140,9 @@ public:
 	bool state(const InputType &val);
 
 	Common::String getAssociatedKey(const InputType &type);
+
+	// Save and flush the keymaps to disk
+	void save();
 };
 
 } // End of namespace input

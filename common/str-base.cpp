@@ -106,14 +106,8 @@ TEMPLATE BASESTRING::BaseString(const value_type *str) : _size(0), _str(_storage
 	if (str == nullptr) {
 		_storage[0] = 0;
 		_size = 0;
-	} else {
-		uint32 len = 0;
-		const value_type *s = str;
-		while (*s++) {
-			++len;
-		}
-		initWithValueTypeStr(str, len);
-	}
+	} else
+		initWithValueTypeStr(str, cStrLen(str));
 }
 
 TEMPLATE BASESTRING::BaseString(const value_type *str, uint32 len) : _size(0), _str(_storage) {
@@ -472,6 +466,13 @@ TEMPLATE void BASESTRING::deleteLastChar() {
 		deleteChar(_size - 1);
 }
 
+TEMPLATE void BASESTRING::chop(uint32 len) {
+	uint32 newSize = _size - MIN(_size, len);
+
+	_str[newSize] = 0;
+	_size = newSize;
+}
+
 TEMPLATE void BASESTRING::erase(uint32 p, uint32 len) {
 	if (len == 0)
 		return;
@@ -719,20 +720,36 @@ TEMPLATE void BASESTRING::wordWrap(const uint32 maxLength) {
 #endif
 
 TEMPLATE void BASESTRING::toLowercase() {
-	makeUnique();
-	for (uint32 i = 0; i < _size; ++i) {
-		if (_str[i] > 0 && _str[i] < 128) {
-			_str[i] = tolower(_str[i]);
-		}
-	}
+	toCase(tolower);
 }
 
 TEMPLATE void BASESTRING::toUppercase() {
-	makeUnique();
-	for (uint32 i = 0; i < _size; ++i) {
-		if (_str[i] > 0 && _str[i] < 128) {
-			_str[i] = toupper(_str[i]);
+	toCase(toupper);
+}
+
+TEMPLATE void BASESTRING::toCase(int (*caseChangeFunc)(int)) {
+	uint32 sz = _size;
+	T *buf = _str;
+
+	uint32 i = 0;
+	for ( ; i < sz; ++i) {
+		value_type ch = buf[i];
+		if (ch > 0 && ch < 128) {
+			value_type newCh = static_cast<value_type>(caseChangeFunc(buf[i]));
+			if (ch != newCh) {
+				makeUnique();
+				buf = _str;
+				buf[i] = newCh;
+				i++;
+				break;
+			}
 		}
+	}
+
+	for (; i < sz; ++i) {
+		value_type ch = buf[i];
+		if (ch > 0 && ch < 128)
+			buf[i] = static_cast<value_type>(caseChangeFunc(ch));
 	}
 }
 
@@ -841,6 +858,14 @@ TEMPLATE uint BASESTRING::getUnsignedValue(uint pos) const {
 	return ((uint)_str[pos]) << shift >> shift;
 }
 
+TEMPLATE uint32 BASESTRING::cStrLen(const value_type *str) {
+	uint32 len = 0;
+	while (str[len])
+		len++;
+
+	return len;
+}
+
 // Hash function for strings, taken from CPython.
 TEMPLATE uint BASESTRING::hash() const {
 	uint hashResult = getUnsignedValue(0) << 7;
@@ -848,6 +873,11 @@ TEMPLATE uint BASESTRING::hash() const {
 		hashResult = (1000003 * hashResult) ^ getUnsignedValue(i);
 	}
 	return hashResult ^ _size;
+}
+
+template<>
+uint32 BaseString<char>::cStrLen(const value_type *str) {
+	return static_cast<uint32>(strlen(str));
 }
 
 template class BaseString<char>;

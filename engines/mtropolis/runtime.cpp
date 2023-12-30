@@ -4197,6 +4197,13 @@ void SceneTransitionHooks::onSceneTransitionEnded(Runtime *runtime, const Common
 
 
 Palette::Palette() {
+	initDefaultPalette(1);
+}
+
+void Palette::initDefaultPalette(int version) {
+	// NOTE: The "V2" pallete is correct for Unit: Rebooted.
+	// Is it correct for all V2 apps?
+	assert(version == 1 || version == 2);
 	int outColorIndex = 0;
 	for (int rb = 0; rb < 6; rb++) {
 		for (int rg = 0; rg < 6; rg++) {
@@ -4204,9 +4211,15 @@ Palette::Palette() {
 				byte *color = _colors + outColorIndex * 3;
 				outColorIndex++;
 
-				color[0] = 255 - rr * 51;
-				color[1] = 255 - rg * 51;
-				color[2] = 255 - rb * 51;
+				if (version == 1) {
+					color[0] = 255 - rr * 51;
+					color[1] = 255 - rg * 51;
+					color[2] = 255 - rb * 51;
+				} else {
+					color[2] = 255 - rr * 51;
+					color[1] = 255 - rg * 51;
+					color[0] = 255 - rb * 51;
+				}
 			}
 		}
 	}
@@ -4223,7 +4236,7 @@ Palette::Palette() {
 
 			byte intensity = 255 - ri * 17;
 
-			if (ch == 4) {
+			if (ch == 3) {
 				color[0] = color[1] = color[2] = intensity;
 			} else {
 				color[0] = color[1] = color[2] = 0;
@@ -4234,9 +4247,18 @@ Palette::Palette() {
 
 	assert(outColorIndex == 255);
 
-	_colors[255 * 3 + 0] = 0;
-	_colors[255 * 3 + 1] = 0;
-	_colors[255 * 3 + 2] = 0;
+	if (version == 1) {
+		_colors[255 * 3 + 0] = 0;
+		_colors[255 * 3 + 1] = 0;
+		_colors[255 * 3 + 2] = 0;
+	} else {
+		_colors[0 * 3 + 0] = 0;
+		_colors[0 * 3 + 1] = 0;
+		_colors[0 * 3 + 2] = 0;
+		_colors[255 * 3 + 0] = 255;
+		_colors[255 * 3 + 1] = 255;
+		_colors[255 * 3 + 2] = 255;
+	}
 }
 
 Palette::Palette(const ColorRGB8 *colors) {
@@ -6971,6 +6993,7 @@ void Project::loadFromDescription(const ProjectDescription &desc, const Hacks &h
 	const Data::PlugInModifierRegistry &plugInDataLoaderRegistry = _plugInRegistry.getDataLoaderRegistry();
 
 	size_t numSegments = desc.getSegments().size();
+	debug(1, "Loading %d segments", (int)numSegments);
 	_segments.resize(numSegments);
 
 	for (size_t i = 0; i < numSegments; i++) {
@@ -6992,15 +7015,24 @@ void Project::loadFromDescription(const ProjectDescription &desc, const Hacks &h
 		_isBigEndian = true;
 		_projectFormat = Data::kProjectFormatMacintosh;
 	} else {
-		error("Unrecognized project segment header");
+		warning("Unrecognized project segment header (startValue: %d)", startValue);
+		_projectFormat = Data::kProjectFormatWindows;
 	}
 
 	Common::SeekableSubReadStreamEndian stream(baseStream, 2, baseStream->size(), _isBigEndian);
-	if (stream.readUint32() != 0xaa55a5a5 || stream.readUint32() != 0 || stream.readUint32() != 14) {
-		error("Unrecognized project segment header");
+	const uint32 magic = stream.readUint32();
+	const uint32 hdr1 = stream.readUint32();
+	const uint32 hdr2 = stream.readUint32();
+	if (magic != 0xaa55a5a5 || (hdr1 != 0 && hdr1 != 0x2000000) || hdr2 != 14) {
+		error("Unrecognized project segment header (%x, %x, %d)", magic, hdr1, hdr2);
 	}
 
-	Data::DataReader reader(2, stream, _projectFormat);
+	if (hdr1 == 0)
+		_projectEngineVersion = Data::kProjectEngineVersion1;
+	else
+		_projectEngineVersion = Data::kProjectEngineVersion2;
+
+	Data::DataReader reader(2, stream, _projectFormat, _projectEngineVersion);
 
 	Common::SharedPtr<Data::DataObject> dataObject;
 	Data::loadDataObject(_plugInRegistry.getDataLoaderRegistry(), reader, dataObject);
@@ -7027,11 +7059,11 @@ void Project::loadFromDescription(const ProjectDescription &desc, const Hacks &h
 		StreamDesc &streamDesc = _streams[i];
 		const Data::ProjectCatalog::StreamDesc &srcStream = catalog->streams[i];
 
-		if (!strcmp(srcStream.streamType, "assetStream"))
+		if (!strcmp(srcStream.streamType, "assetStream") || !strcmp(srcStream.streamType, "assetstream"))
 			streamDesc.streamType = kStreamTypeAsset;
-		else if (!strcmp(srcStream.streamType, "bootStream"))
+		else if (!strcmp(srcStream.streamType, "bootStream") || !strcmp(srcStream.streamType, "bootstream"))
 			streamDesc.streamType = kStreamTypeBoot;
-		else if (!strcmp(srcStream.streamType, "sceneStream"))
+		else if (!strcmp(srcStream.streamType, "sceneStream") || !strcmp(srcStream.streamType, "scenestream"))
 			streamDesc.streamType = kStreamTypeScene;
 		else
 			streamDesc.streamType = kStreamTypeUnknown;
@@ -7075,7 +7107,7 @@ void Project::loadSceneFromStream(const Common::SharedPtr<Structural> &scene, ui
 	openSegmentStream(segmentIndex);
 
 	Common::SeekableSubReadStreamEndian stream(_segments[segmentIndex].weakStream, streamDesc.pos, streamDesc.pos + streamDesc.size, _isBigEndian);
-	Data::DataReader reader(streamDesc.pos, stream, _projectFormat);
+	Data::DataReader reader(streamDesc.pos, stream, _projectFormat, _projectEngineVersion);
 
 	if (getRuntime()->getHacks().mtiHispaniolaDamagedStringHack && scene->getName() == "C01b : Main Deck Helm Kidnap")
 		reader.setPermitDamagedStrings(true);
@@ -7203,7 +7235,7 @@ void Project::forceLoadAsset(uint32 assetID, Common::Array<Common::SharedPtr<Ass
 	openSegmentStream(segmentIndex);
 
 	Common::SeekableSubReadStreamEndian stream(_segments[segmentIndex].weakStream, streamDesc.pos, streamDesc.pos + streamDesc.size, _isBigEndian);
-	Data::DataReader reader(streamDesc.pos, stream, _projectFormat);
+	Data::DataReader reader(streamDesc.pos, stream, _projectFormat, _projectEngineVersion);
 
 	const Data::PlugInModifierRegistry &plugInDataLoaderRegistry = _plugInRegistry.getDataLoaderRegistry();
 
@@ -7363,7 +7395,7 @@ void Project::loadBootStream(size_t streamIndex, const Hacks &hacks) {
 	openSegmentStream(segmentIndex);
 
 	Common::SeekableSubReadStreamEndian stream(_segments[segmentIndex].weakStream, streamDesc.pos, streamDesc.pos + streamDesc.size, _isBigEndian);
-	Data::DataReader reader(streamDesc.pos, stream, _projectFormat);
+	Data::DataReader reader(streamDesc.pos, stream, _projectFormat, _projectEngineVersion);
 
 	ChildLoaderStack loaderStack;
 	AssetDefLoaderContext assetDefLoader;
@@ -7423,6 +7455,7 @@ void Project::loadBootStream(size_t streamIndex, const Hacks &hacks) {
 				} break;
 			case Data::DataObjectTypes::kStreamHeader:
 			case Data::DataObjectTypes::kUnknown19:
+			case Data::DataObjectTypes::kUnknown2B:
 				// Ignore
 				break;
 			default:

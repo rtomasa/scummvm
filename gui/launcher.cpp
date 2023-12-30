@@ -24,7 +24,6 @@
 #include "common/config-manager.h"
 #include "common/events.h"
 #include "common/fs.h"
-#include "common/gui_options.h"
 #include "common/util.h"
 #include "common/system.h"
 #include "common/translation.h"
@@ -32,7 +31,9 @@
 #include "gui/about.h"
 #include "gui/browser.h"
 #include "gui/chooser.h"
+#include "gui/dlcsdialog.h"
 #include "gui/editgamedialog.h"
+#include "gui/helpdialog.h"
 #include "gui/launcher.h"
 #include "gui/massadd.h"
 #include "gui/message.h"
@@ -57,6 +58,9 @@
 #if defined(USE_CLOUD) && defined(USE_LIBCURL)
 #include "backends/cloud/cloudmanager.h"
 #endif
+#if defined(USE_DLC)
+#include "backends/dlc/dlcmanager.h"
+#endif
 
 namespace GUI {
 
@@ -66,6 +70,7 @@ enum {
 	kOptionsCmd = 'OPTN',
 	kAddGameCmd = 'ADDG',
 	kMassAddGameCmd = 'MADD',
+	kDownloadGameCmd = 'DWNG',
 	kEditGameCmd = 'EDTG',
 	kRemoveGameCmd = 'REMG',
 	kLoadGameCmd = 'LOAD',
@@ -75,6 +80,7 @@ enum {
 	kListSearchCmd = 'LSSR',
 	kSearchClearCmd = 'SRCL',
 	kSetGroupMethodCmd = 'GPBY',
+	kHelpCmd = 'HELP',
 
 	kListSwitchCmd = 'LIST',
 	kGridSwitchCmd = 'GRID',
@@ -109,6 +115,8 @@ const GroupingMode groupingModes[] = {
 	{"language", _sc("Language", "group"),     nullptr,                 kGroupByLanguage},
 	// I18N: Group name for the game list, grouped by game platform
 	{"platform", _sc("Platform", "group"),     nullptr,                 kGroupByPlatform},
+	// I18N: Group name for the game list, grouped by year
+	{"year", _sc("Year", "year"),              nullptr,                 kGroupByYear},
 	{nullptr, nullptr, nullptr, kGroupByNone}
 };
 
@@ -201,6 +209,12 @@ LauncherDialog::LauncherDialog(const Common::String &dialogName)
 		_metadataParser.close();
 	}
 	g_gui.unlockIconsSet();
+
+#if defined(USE_DLC)
+	if (g_system->hasFeature(OSystem::kFeatureDLC)) {
+		DLCMan.setLauncher(this);
+	}
+#endif
 }
 
 LauncherDialog::~LauncherDialog() {
@@ -222,7 +236,7 @@ void LauncherDialog::build() {
 	Common::String grouping = ConfMan.get("grouping");
 	const GroupingMode *mode = groupingModes;
 	while (mode->name) {
-		if (mode->lowresDescription && g_system->getOverlayWidth() <= 320) {
+		if (mode->lowresDescription && g_gui.useLowResGUI()) {
 			_grpChooserPopup->appendEntry(_c(mode->lowresDescription, "group"), mode->id);
 		} else {
 			_grpChooserPopup->appendEntry(_c(mode->description, "group"), mode->id);
@@ -245,6 +259,8 @@ void LauncherDialog::build() {
 #endif
 		new StaticTextWidget(this, _title + ".Version", Common::U32String(gScummVMFullVersion));
 
+	new ButtonWidget(this, _title + ".HelpButton", Common::U32String("?"), _("Help"), kHelpCmd);
+
 	if (!g_system->hasFeature(OSystem::kFeatureNoQuit)) {
 		// I18N: Button Quit ScummVM program. Q is the shortcut, Ctrl+Q, put it in parens for non-latin (~Q~)
 		new ButtonWidget(this, _title + ".QuitButton", _("~Q~uit"), _("Quit ScummVM"), kQuitCmd);
@@ -255,6 +271,12 @@ void LauncherDialog::build() {
 	// I18N: Button caption. O is the shortcut, Ctrl+O, put it in parens for non-latin (~O~)
 	new ButtonWidget(this, _title + ".OptionsButton", _("Global ~O~ptions..."), _("Change global ScummVM options"), kOptionsCmd, 0, _c("Global ~O~pts...", "lowres"));
 
+#if defined(USE_DLC)
+	if (g_system->hasFeature(OSystem::kFeatureDLC)) {
+		new ButtonWidget(this, _title + ".DownloadGamesButton", _("Download Games"), _("Download freeware games for ScummVM"), kDownloadGameCmd);
+	}
+#endif
+
 	// Above the lowest button rows: two more buttons (directly below the list box)
 	DropdownButtonWidget *addButton =
 		// I18N: Button caption. A is the shortcut, Ctrl+A, put it in parens for non-latin (~A~)
@@ -263,7 +285,7 @@ void LauncherDialog::build() {
 	_removeButton =
 		// I18N: Button caption. R is the shortcut, Ctrl+R, put it in parens for non-latin (~R~)
 		new ButtonWidget(this, _title + ".RemoveGameButton", _("~R~emove Game"), _("Remove game from the list. The game data files stay intact"), kRemoveGameCmd, 0, _c("~R~emove Game", "lowres"));
-	if (g_system->getOverlayWidth() > 320) {
+	if (!g_gui.useLowResGUI()) {
 		// I18N: Button caption. Mass add games
 		addButton->appendEntry(_("Mass Add..."), kMassAddGameCmd);
 	} else {
@@ -404,7 +426,7 @@ void LauncherDialog::massAddGame() {
 	MessageDialog alert(_("Do you really want to run the mass game detector? "
 						  "This could potentially add a huge number of games."), _("Yes"), _("No"));
 	if (alert.runModal() == GUI::kMessageOK && _browser->runModal() > 0) {
-		MD5Man.clear();
+		ADCacheMan.clear();
 		MassAddDialog massAddDlg(_browser->getResult());
 
 		massAddDlg.runModal();
@@ -727,6 +749,13 @@ void LauncherDialog::handleCommand(CommandSender *sender, uint32 cmd, uint32 dat
 	case kMassAddGameCmd:
 		massAddGame();
 		break;
+#if defined(USE_DLC)
+	case kDownloadGameCmd: {
+		DLCsDialog downloader;
+		downloader.runModal();
+		}
+		break;
+#endif
 	case kRemoveGameCmd:
 		if (item < 0) return;
 		removeGame(item);
@@ -765,6 +794,11 @@ void LauncherDialog::handleCommand(CommandSender *sender, uint32 cmd, uint32 dat
 		ConfMan.setActiveDomain("");
 		setResult(-1);
 		close();
+		break;
+	case kHelpCmd: {
+		HelpDialog dlg;
+		dlg.runModal();
+		}
 		break;
 #ifndef DISABLE_LAUNCHERDISPLAY_GRID
 	case kGridSwitchCmd:
@@ -1129,7 +1163,7 @@ void LauncherSimple::updateListing() {
 	// Update the filter settings, those are lost when "setList"
 	// is called.
 	_list->setFilter(_searchWidget->getEditString());
-	
+
 	// Close groups that the user closed earlier
 	_list->loadClosedGroups(Common::U32String(groupingModes[_groupBy].name));
 }
@@ -1219,6 +1253,19 @@ void LauncherSimple::groupEntries(const Common::Array<LauncherEntry> &metadata) 
 		for (; p->code; ++p) {
 			metadataNames[p->code] = p->description;
 		}
+		break;
+	}
+	case kGroupByYear: {
+		for (Common::Array<LauncherEntry>::const_iterator iter = metadata.begin(); iter != metadata.end(); ++iter) {
+			Common::U32String year = _metadataParser._gameInfo[buildQualifiedGameName(iter->engineid, iter->gameid)].year;
+			attrs.push_back(year);
+
+			if (!metadataNames.contains(year))
+				metadataNames[year] = year;
+		}
+		_list->setGroupHeaderFormat(Common::U32String(""), Common::U32String(""));
+		// I18N: List group when no year is specified
+		metadataNames[""] = _("Unknown Year");
 		break;
 	}
 	case kGroupByNone:	// Fall-through intentional
@@ -1404,6 +1451,19 @@ void LauncherGrid::groupEntries(const Common::Array<LauncherEntry> &metadata) {
 		}
 		break;
 	}
+	case kGroupByYear: {
+		for (Common::Array<LauncherEntry>::const_iterator iter = metadata.begin(); iter != metadata.end(); ++iter) {
+			Common::U32String year = _metadataParser._gameInfo[buildQualifiedGameName(iter->engineid, iter->gameid)].year;
+			attrs.push_back(year);
+
+			if (!metadataNames.contains(year))
+				metadataNames[year] = year;
+		}
+		_grid->setGroupHeaderFormat(Common::U32String(""), Common::U32String(""));
+		// I18N: List group when no year is specified
+		metadataNames[""] = _("Unknown Year");
+		break;
+	}
 	case kGroupByNone:	// Fall-through intentional
 	default:
 		for (uint i = 0; i < metadata.size(); ++i) {
@@ -1458,7 +1518,7 @@ void LauncherGrid::handleCommand(CommandSender *sender, uint32 cmd, uint32 data)
 		break;
 	case kSetGroupMethodCmd: {
 		_grid->saveClosedGroups(Common::U32String(groupingModes[_groupBy].name));
-	
+
 		// Change the grouping criteria
 		GroupingMethod newGroupBy = (GroupingMethod)data;
 		if (_groupBy != newGroupBy) {

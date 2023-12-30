@@ -25,11 +25,11 @@
 #include "common/random.h"
 #include "common/timer.h"
 #include "graphics/cursorman.h"
+#include "image/neo.h"
+#include "image/scr.h"
 
 #include "freescape/freescape.h"
 #include "freescape/language/8bitDetokeniser.h"
-#include "freescape/neo.h"
-#include "freescape/scr.h"
 #include "freescape/objects/sensor.h"
 
 namespace Freescape {
@@ -84,6 +84,7 @@ FreescapeEngine::FreescapeEngine(OSystem *syst, const ADGameDescription *gd)
 	_startArea = 0;
 	_startEntrance = 0;
 	_currentArea = nullptr;
+	_gotoExecuted = false;
 	_rotation = Math::Vector3d(0, 0, 0);
 	_position = Math::Vector3d(0, 0, 0);
 	_lastPosition = Math::Vector3d(0, 0, 0);
@@ -136,12 +137,14 @@ FreescapeEngine::FreescapeEngine(OSystem *syst, const ADGameDescription *gd)
 	_playerHeight = 0;
 	_playerWidth = 0;
 	_playerDepth = 0;
+	_stepUpDistance = 0;
 	_colorNumber = 0;
 
 	_fullscreenViewArea = Common::Rect(0, 0, _screenW, _screenH);
 	_viewArea = _fullscreenViewArea;
 	_rnd = new Common::RandomSource("freescape");
 	_gfx = nullptr;
+	_rawCGAPaletteByArea = nullptr;
 	_speaker = nullptr;
 	_savedScreen = nullptr;
 
@@ -159,6 +162,7 @@ FreescapeEngine::FreescapeEngine(OSystem *syst, const ADGameDescription *gd)
 
 	_maxShield = 63;
 	_maxEnergy = 63;
+	_gameStateBits = 0;
 
 	g_freescape = this;
 }
@@ -322,7 +326,11 @@ void FreescapeEngine::drawFrame() {
 
 	if (_shootingFrames > 0) {
 		_gfx->setViewport(_fullscreenViewArea);
-		_gfx->renderPlayerShoot(0, _crossairPosition, _viewArea);
+		if (isDriller() || isDark())
+			_gfx->renderPlayerShootRay(0, _crossairPosition, _viewArea);
+		else
+			_gfx->renderPlayerShootBall(0, _crossairPosition, _shootingFrames, _viewArea);
+
 		_gfx->setViewport(_viewArea);
 		_shootingFrames--;
 	}
@@ -442,9 +450,7 @@ void FreescapeEngine::processInput() {
 			case Common::KEYCODE_ESCAPE:
 				drawFrame();
 				_savedScreen = _gfx->getScreenshot();
-				_gfx->setViewport(_fullscreenViewArea);
 				openMainMenuDialog();
-				_gfx->setViewport(_viewArea);
 				_gfx->computeScreenViewport();
 				_savedScreen->free();
 				delete _savedScreen;
@@ -671,24 +677,26 @@ bool FreescapeEngine::checkIfGameEnded() {
 }
 
 void FreescapeEngine::setGameBit(int index) {
-	_gameStateBits[_currentArea->getAreaID()] |= (1 << (index - 1));
+	_gameStateBits |= (1 << (index - 1));
 }
 
 void FreescapeEngine::clearGameBit(int index) {
-	_gameStateBits[_currentArea->getAreaID()] &= ~(1 << (index - 1));
+	_gameStateBits &= ~(1 << (index - 1));
 }
 
 void FreescapeEngine::toggleGameBit(int index) {
-	_gameStateBits[_currentArea->getAreaID()] ^= (1 << (index - 1));
+	_gameStateBits ^= (1 << (index - 1));
 }
 
+uint16 FreescapeEngine::getGameBit(int index) {
+	return (_gameStateBits >> (index - 1)) & 1;
+}
 
 void FreescapeEngine::initGameState() {
 	for (int i = 0; i < k8bitMaxVariable; i++) // TODO: check maximum variable
 		_gameStateVars[i] = 0;
 
-	for (auto &it : _areaMap)
-		_gameStateBits[it._key] = 0;
+	_gameStateBits = 0;
 }
 
 void FreescapeEngine::rotate(float xoffset, float yoffset) {
@@ -735,7 +743,7 @@ void FreescapeEngine::drawStringInSurface(const Common::String &str, int x, int 
 	int sizeX = 8;
 	int sizeY = isCastle() ? 8 : 6;
 	int sep = isCastle() ? 9 : 8;
-	int additional = isCastle() ? 0 : 1;
+	int additional = isCastle() || isEclipse() ? 0 : 1;
 
 	if (isDOS() || isSpectrum() || isCPC() || isC64()) {
 		for (uint32 c = 0; c < ustr.size(); c++) {
@@ -783,10 +791,7 @@ Common::Error FreescapeEngine::loadGameStream(Common::SeekableReadStream *stream
 		_gameStateVars[key] = stream->readUint32LE();
 	}
 
-	for (uint i = 0; i < _gameStateBits.size(); i++) {
-		uint16 key = stream->readUint16LE();
-		_gameStateBits[key] = stream->readUint32LE();
-	}
+	_gameStateBits = stream->readUint32LE();
 
 	for (uint i = 0; i < _areaMap.size(); i++) {
 		uint16 key = stream->readUint16LE();
@@ -826,10 +831,7 @@ Common::Error FreescapeEngine::saveGameStream(Common::WriteStream *stream, bool 
 		stream->writeUint32LE(it._value);
 	}
 
-	for (auto &it : _gameStateBits) {
-		stream->writeUint16LE(it._key);
-		stream->writeUint32LE(it._value);
-	}
+	stream->writeUint32LE(_gameStateBits);
 
 	for (auto &it : _areaMap) {
 		stream->writeUint16LE(it._key);
@@ -873,7 +875,7 @@ void FreescapeEngine::clearTemporalMessages() {
 
 byte *FreescapeEngine::getPaletteFromNeoImage(Common::SeekableReadStream *stream, int offset) {
 	stream->seek(offset);
-	NeoDecoder decoder;
+	Image::NeoDecoder decoder;
 	decoder.loadStream(*stream);
 	byte *palette = (byte *)malloc(16 * 3 * sizeof(byte));
 	memcpy(palette, decoder.getPalette(), 16 * 3 * sizeof(byte));
@@ -882,16 +884,17 @@ byte *FreescapeEngine::getPaletteFromNeoImage(Common::SeekableReadStream *stream
 
 Graphics::ManagedSurface *FreescapeEngine::loadAndConvertNeoImage(Common::SeekableReadStream *stream, int offset, byte *palette) {
 	stream->seek(offset);
-	NeoDecoder decoder(palette);
+	Image::NeoDecoder decoder(palette);
 	decoder.loadStream(*stream);
 	Graphics::ManagedSurface *surface = new Graphics::ManagedSurface();
 	surface->copyFrom(*decoder.getSurface());
-	surface->convertToInPlace(_gfx->_currentPixelFormat, decoder.getPalette());
+	surface->convertToInPlace(_gfx->_currentPixelFormat, decoder.getPalette(),
+		decoder.getPaletteStartIndex(), decoder.getPaletteColorCount());
 	return surface;
 }
 
 Graphics::ManagedSurface *FreescapeEngine::loadAndCenterScrImage(Common::SeekableReadStream *stream) {
-	ScrDecoder decoder;
+	Image::ScrDecoder decoder;
 	decoder.loadStream(*stream);
 	Graphics::ManagedSurface *surface = new Graphics::ManagedSurface();
 	const Graphics::Surface *decoded = decoder.getSurface();
@@ -913,6 +916,8 @@ void FreescapeEngine::getTimeFromCountdown(int &seconds, int &minutes, int &hour
 
 static void countdownCallback(void *refCon) {
 	FreescapeEngine* self = (FreescapeEngine *)refCon;
+	if (self->isPaused())
+		return;
 	self->_ticks++;
 	if (self->_ticks % 50 == 0)
 		self->_countdown--;

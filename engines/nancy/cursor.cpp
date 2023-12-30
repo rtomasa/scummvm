@@ -19,6 +19,7 @@
  *
  */
 
+#include "common/system.h"
 #include "graphics/cursorman.h"
 
 #include "engines/nancy/nancy.h"
@@ -29,26 +30,54 @@
 
 namespace Nancy {
 
+CursorManager::CursorManager()  :
+	_isInitialized(false),
+	_curItemID(-1),
+	_curCursorType(kNormal),
+	_curCursorID(0),
+	_lastCursorID(0),
+	_hasItem(false),
+	_numCursorTypes(0),
+	_puzzleExitCursor((g_nancy->getGameType() >= kGameTypeNancy4) ? kMoveBackward : kExit),
+	_warpedMousePos(-500, -500) {}
+
 void CursorManager::init(Common::SeekableReadStream *chunkStream) {
 	assert(chunkStream);
-
 	chunkStream->seek(0);
 
-	switch(g_nancy->getGameType()) {
-	case kGameTypeVampire:
-		// fall thorugh
-	case kGameTypeNancy1:
-		_numCursorTypes = 4;
-		break;
-	case kGameTypeNancy2:
-		_numCursorTypes = 5;
-		break;
-	case kGameTypeNancy3:
-		_numCursorTypes = 8;
-		break;
-	default:
-		_numCursorTypes = 12;
+	// First, we need to figure out the number of possible CursorTypes in the current game
+	// These grew as the engine got more complicated, so we use nancy.dat to store a related property
+	// TODO: Change nancy.dat so it just directly stores the number of cursor types
+	if (g_nancy->getGameType() == kGameTypeVampire) {
+		_numCursorTypes = g_nancy->getStaticData().numNonItemCursors / 2;
+	} else {
+		_numCursorTypes = g_nancy->getStaticData().numNonItemCursors / 3;
 	}
+
+	// The structure of CURS is weird:
+
+	// The data is divided in half: first half is source rectangles, second half is hotspots (all of which are identical...)
+	// However, each of those halves are divided into a number of arrays, each one of size _numCursorTypes.
+
+	// The first few arrays are the following:
+	// - an array of cursors used when the mouse is in the VIEWPORT (hourglass, directional arrows, etc.)
+	// - an array of cursors used in the FRAME
+	// - an array of cursors used in MENUS (not present in TVD)
+	// The only frame cursors used are the first two: the classic arrow cursor, and its hotspot variant, which is slightly shorter
+	// The same applies to the menu cursors; however, we completely ignore those (technically the arrow cursor has sliiiiightly
+	// different shading from the one in the frame array, but I don't care enough to implement it).
+	
+	// Following those are the ITEM arrays; these cursors are used to indicate that the player is holding an item.
+	// Their number is the same as the number of items described in INV, and their size is also _numCursorTypes.
+	// Out of those arrays, the only cursors that get used are the kNormal and kHotspot ones. The first few games also
+	// had kMove item cursors, but the Move cursors quickly fell out of use.
+
+	// Due to the logic in setCursor(), directional arrow cursors found in the VIEWPORT array take precedence over
+	// the ones in the item arrays. As a result, most of the CURS data is effectively junk that never gets used.
+
+	// Perhaps in the future the class could be modified so we no longer have to store or care about all of the junk cursors;
+	// however, this cannot happen until the engine is more mature and I'm more aware of what changes they made to the
+	// cursor code in later games.
 
 	uint numCursors = g_nancy->getStaticData().numNonItemCursors + g_nancy->getStaticData().numItems * _numCursorTypes;
 	_cursors.resize(numCursors);
@@ -66,12 +95,17 @@ void CursorManager::init(Common::SeekableReadStream *chunkStream) {
 	_primaryVideoInitialPos.x = chunkStream->readUint16LE();
 	_primaryVideoInitialPos.y = chunkStream->readUint16LE();
 
-	g_nancy->_resource->loadImage(g_nancy->_inventoryData->inventoryCursorsImageName, _invCursorsSurface);
+	auto *inventoryData = GetEngineData(INV);
+	assert(inventoryData);
+
+	g_nancy->_resource->loadImage(inventoryData->inventoryCursorsImageName, _invCursorsSurface);
 
 	setCursor(kNormalArrow, -1);
 	showCursor(false);
 
 	_isInitialized = true;
+
+	adjustCursorHotspot();
 
 	delete chunkStream;
 }
@@ -92,51 +126,64 @@ void CursorManager::setCursor(CursorType type, int16 itemID) {
 
 	_hasItem = false;
 
-	// kNormalArrow, kHotspotArrow, kExit, kTurnLeft and kTurnRight are
-	// cases where the selected cursor is _always_ shown, regardless
+	// For all cases below, the selected cursor is _always_ shown, regardless
 	// of whether or not an item is held. All other types of cursor
 	// are overridable when holding an item. Every item cursor has
 	// _numItemCursor variants, one corresponding to every numbered
 	// value of the CursorType enum.
 	switch (type) {
 	case kNormalArrow:
-		if (gameType <= kGameTypeNancy1) {
-			_curCursorID = 4;
-		} else if (gameType == kGameTypeNancy2) {
-			_curCursorID = 5;
-		} else if (gameType ==  kGameTypeNancy3) {
-			_curCursorID = 8;
-		} else {
-			_curCursorID = 12;
-		}
-
+		_curCursorID = _numCursorTypes;
 		return;
 	case kHotspotArrow:
-		if (gameType <= kGameTypeNancy1) {
-			_curCursorID = 5;
-		} else if (gameType == kGameTypeNancy2) {
-			_curCursorID = 6;
-		} else if (gameType ==  kGameTypeNancy3) {
-			_curCursorID = 9;
-		} else {
-			_curCursorID = 13;
+		_curCursorID = _numCursorTypes + 1;
+		return;
+	case kInvertedRotateLeft:
+		// Only valid for nancy6 and up
+		if (gameType >= kGameTypeNancy6) {
+			_curCursorID = kInvertedRotateLeft;
+			return;
+		}
+		
+		// fall through
+	case kRotateLeft:
+		// Only valid for nancy6 and up
+		if (gameType >= kGameTypeNancy6) {
+			_curCursorID = kRotateLeft;
+			return;
 		}
 
-		return;
-	case kTurnLeft:
+		// fall through
+	case kMoveLeft:
 		// Only valid for nancy3 and up
 		if (gameType >= kGameTypeNancy3) {
-			_curCursorID = kTurnLeft;
+			_curCursorID = kMoveLeft;
 			return;
 		} else {
 			type = kMove;
 		}
 
 		break;
-	case kTurnRight:
+	case kInvertedRotateRight:
+		// Only valid for nancy6 and up
+		if (gameType >= kGameTypeNancy6) {
+			_curCursorID = kInvertedRotateRight;
+			return;
+		}
+
+		// fall through
+	case kRotateRight:
+		// Only valid for nancy6 and up
+		if (gameType >= kGameTypeNancy6) {
+			_curCursorID = kRotateRight;
+			return;
+		}
+
+		// fall through
+	case kMoveRight:
 		// Only valid for nancy3 and up
 		if (gameType >= kGameTypeNancy3) {
-			_curCursorID = kTurnRight;
+			_curCursorID = kMoveRight;
 			return;
 		} else {
 			type = kMove;
@@ -163,6 +210,26 @@ void CursorManager::setCursor(CursorType type, int16 itemID) {
 		}
 
 		break;
+	case kMoveForward:
+		// Only valid for nancy4 and up
+		if (gameType >= kGameTypeNancy4) {
+			_curCursorID = kMoveForward;
+			return;
+		} else {
+			type = kHotspot;
+		}
+
+		break;
+	case kMoveBackward:
+		// Only valid for nancy4 and up
+		if (gameType >= kGameTypeNancy4) {
+			_curCursorID = kMoveBackward;
+			return;
+		} else {
+			type = kHotspot;
+		}
+
+		break;
 	case kExit:
 		// Not valid in TVD
 		if (gameType != kGameTypeVampire) {
@@ -171,6 +238,12 @@ void CursorManager::setCursor(CursorType type, int16 itemID) {
 		}
 
 		break;
+	case kRotateCW:
+		_curCursorID = kRotateCW;
+		return;
+	case kRotateCCW:
+		_curCursorID = kRotateCCW;
+		return;
 	default:
 		break;
 	}
@@ -198,42 +271,67 @@ void CursorManager::setCursorItemID(int16 itemID) {
 	setCursor(_curCursorType, itemID);
 }
 
+void CursorManager::warpCursor(const Common::Point &pos) {
+	_warpedMousePos = pos;
+}
+
 void CursorManager::applyCursor() {
-	Graphics::ManagedSurface *surf;
-	Common::Rect bounds = _cursors[_curCursorID].bounds;
-	Common::Point hotspot = _cursors[_curCursorID].hotspot;
+	if (_curCursorID != _lastCursorID) {
+		Graphics::ManagedSurface *surf;
+		Common::Rect bounds = _cursors[_curCursorID].bounds;
+		Common::Point hotspot = _cursors[_curCursorID].hotspot;
 
-	if (_hasItem) {
-		surf = &_invCursorsSurface;
+		if (_hasItem) {
+			surf = &_invCursorsSurface;
 
-	} else {
-		surf = &g_nancy->_graphicsManager->_object0;
+		} else {
+			surf = &g_nancy->_graphicsManager->_object0;
+		}
+
+		Graphics::ManagedSurface temp(*surf, bounds);
+
+		CursorMan.replaceCursor(temp, hotspot.x, hotspot.y, g_nancy->_graphicsManager->getTransColor(), false);
+		if (g_nancy->getGameType() == kGameTypeVampire) {
+			byte palette[3 * 256];
+			surf->grabPalette(palette, 0, 256);
+			CursorMan.replaceCursorPalette(palette, 0, 256);
+		}
+
+		_lastCursorID = _curCursorID;
 	}
 
-	// Create a temporary surface to hold the cursor since giving replaceCursor() a pointer
-	// to the original surface results in garbage. This also makes it so we don't have to deal
-	// with TVD's palettes
-	Graphics::ManagedSurface temp;
-	temp.create(bounds.width(), bounds.height(), g_nancy->_graphicsManager->getScreenPixelFormat());
-	temp.blitFrom(*surf, bounds, Common::Point());
-
-	// Convert the trans color from the original format to the screen format
-	uint transColor;
-	if (g_nancy->getGameType() == kGameTypeVampire) {
-		uint8 palette[1 * 3];
-		surf->grabPalette(palette, 1, 1);
-		transColor = temp.format.RGBToColor(palette[0], palette[1], palette[2]);
-	} else {
-		uint8 r, g, b;
-		surf->format.colorToRGB(g_nancy->_graphicsManager->getTransColor(), r, g, b);
-		transColor = temp.format.RGBToColor(r, g, b);
+	if (_warpedMousePos.x != -500 && _warpedMousePos.y != -500) {
+		g_system->warpMouse(_warpedMousePos.x, _warpedMousePos.y);
+		_warpedMousePos.x = -500;
+		_warpedMousePos.y = -500;
 	}
-
-	CursorMan.replaceCursor(temp, hotspot.x, hotspot.y, transColor, false);
 }
 
 void CursorManager::showCursor(bool shouldShow) {
 	CursorMan.showMouse(shouldShow);
+}
+
+void CursorManager::adjustCursorHotspot() {
+	if (g_nancy->getGameType() == kGameTypeVampire) {
+		return;
+	}
+
+	// Improvement: the arrow cursor in the Nancy games has an atrocious hotspot that's
+	// right in the middle of the graphic, instead of in the top left where
+	// it would make sense to be. This function fixes that.
+	// The hotspot is still a few pixels lower than it should be to account
+	// for the different graphic when hovering UI elements
+
+	// TODO: Make this optional?
+
+	uint startID = _curCursorID;
+
+	setCursorType(kNormalArrow);
+	_cursors[_curCursorID].hotspot = {3, 4};
+	setCursorType(kHotspotArrow);
+	_cursors[_curCursorID].hotspot = {3, 4};
+
+	_curCursorID = startID;
 }
 
 } // End of namespace Nancy

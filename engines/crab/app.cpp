@@ -150,8 +150,8 @@ void App::run() {
 			} else
 				++fpscount;
 
-			if (currentStateId >= 0)
-				g_engine->_textManager->draw(0, 0, numberToString(fpsval).c_str(), 0);
+		if ((g_engine->_debugDraw & DRAW_FPS) && currentStateId >= 0)
+			g_engine->_textManager->draw(0, 0, numberToString(fpsval).c_str(), 0);
 
 		g_engine->_screen->update();
 
@@ -181,11 +181,16 @@ void App::loadSettings(const Common::String &filename) {
 
 			// Start the sound subsystem
 			g_engine->_musicManager->load(node);
+
+			g_system->lockMouse(g_engine->_screenSettings->_mouseTrap);
 		}
 	}
 }
 
 App::~App() {
+	// Return setting to default when game exits
+	g_system->lockMouse(false);
+
 	g_engine->_imageManager->quit();
 	g_engine->_musicManager->quit();
 	g_engine->_textManager->quit();

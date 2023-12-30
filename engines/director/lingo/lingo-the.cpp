@@ -157,6 +157,7 @@ TheEntity entities[] = {
 	{ kTheTraceLoad,		"traceLoad",		false, 400, false },	//			D4 p
 	{ kTheTraceLogFile,		"traceLogFile",		false, 400, false },	//			D4 p
 	{ kTheUpdateMovieEnabled,"updateMovieEnabled",false,400, false },//			D4 p
+	{ kTheVideoForWindowsPresent,	"videoForWindowsPresent",	false, 400, true },	//		D4 f
 	{ kTheWindow,			"window",			true,  400, false },	//			D4
 	{ kTheWindowList,		"windowList",		false, 400, false },	//			D4 p
 	{ kTheNOEntity, nullptr, false, 0, false }
@@ -360,8 +361,8 @@ const char *Lingo::field2str(int id) {
 	warning("Lingo::getTheEntity(): Unprocessed getting entity %s", entity2str(entity));
 
 Datum Lingo::getTheEntity(int entity, Datum &id, int field) {
-	if (debugChannelSet(3, kDebugLingoExec)) {
-		debugC(3, kDebugLingoExec, "Lingo::getTheEntity(%s, %s, %s)", entity2str(entity), id.asString(true).c_str(), field2str(field));
+	if (debugChannelSet(3, kDebugLingoThe | kDebugLingoExec)) {
+		debugC(3, kDebugLingoThe | kDebugLingoExec, "Lingo::getTheEntity(%s, %s, %s)", entity2str(entity), id.asString(true).c_str(), field2str(field));
 	}
 
 	Datum d;
@@ -746,7 +747,7 @@ Datum Lingo::getTheEntity(int entity, Datum &id, int field) {
 		d = M_PI;
 		break;
 	case kTheQuickTimePresent:
-		// QuickTime is always present for scummvm
+		// QuickTime is always present for ScummVM
 		d = 1;
 		break;
 	case kTheRandomSeed:
@@ -890,6 +891,10 @@ Datum Lingo::getTheEntity(int entity, Datum &id, int field) {
 	case kTheUpdateMovieEnabled:
 		d = g_lingo->_updateMovieEnabled;
 		break;
+	case kTheVideoForWindowsPresent:
+		// Video For Windows is always present for ScummVM
+		d = 1;
+		break;
 	case kTheWindow:
 		g_lingo->push(id);
 		LB::b_window(1);
@@ -916,8 +921,8 @@ Datum Lingo::getTheEntity(int entity, Datum &id, int field) {
 	warning("Lingo::setTheEntity: Attempt to set read-only entity %s", entity2str(entity));
 
 void Lingo::setTheEntity(int entity, Datum &id, int field, Datum &d) {
-	if (debugChannelSet(3, kDebugLingoExec)) {
-		debugC(3, kDebugLingoExec, "Lingo::setTheEntity(%s, %s, %s, %s)", entity2str(entity), id.asString(true).c_str(), field2str(field), d.asString(true).c_str());
+	if (debugChannelSet(3, kDebugLingoThe | kDebugLingoExec)) {
+		debugC(3, kDebugLingoThe | kDebugLingoExec, "Lingo::setTheEntity(%s, %s, %s, %s)", entity2str(entity), id.asString(true).c_str(), field2str(field), d.asString(true).c_str());
 	}
 
 	Movie *movie = _vm->getCurrentMovie();

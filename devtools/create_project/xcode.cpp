@@ -307,8 +307,10 @@ void XcodeProvider::addResourceFiles(const BuildSetup &setup, StringList &includ
 		includeList.push_back(setup.srcDir + "/" + *it);
 	}
 
+	StringList pchDirs, pchEx;
+
 	StringList td;
-	createModuleList(setup.srcDir + "/backends/platform/ios7", setup.defines, td, includeList, excludeList);
+	createModuleList(setup.srcDir + "/backends/platform/ios7", setup.defines, td, includeList, excludeList, pchDirs, pchEx);
 }
 
 void XcodeProvider::createWorkspace(const BuildSetup &setup) {
@@ -343,7 +345,7 @@ void XcodeProvider::createOtherBuildFiles(const BuildSetup &setup) {
 
 // Store information about a project here, for use at the end
 void XcodeProvider::createProjectFile(const std::string &, const std::string &, const BuildSetup &setup, const std::string &moduleDir,
-									  const StringList &includeList, const StringList &excludeList) {
+									  const StringList &includeList, const StringList &excludeList, const std::string &pchIncludeRoot, const StringList &pchDirs, const StringList &pchExclude) {
 	std::string modulePath;
 	if (!moduleDir.compare(0, setup.srcDir.size(), setup.srcDir)) {
 		modulePath = moduleDir.substr(setup.srcDir.size());
@@ -353,9 +355,9 @@ void XcodeProvider::createProjectFile(const std::string &, const std::string &, 
 
 	std::ofstream project;
 	if (!modulePath.empty())
-		addFilesToProject(moduleDir, project, includeList, excludeList, setup.filePrefix + '/' + modulePath);
+		addFilesToProject(moduleDir, project, includeList, excludeList, pchIncludeRoot, pchDirs, pchExclude, setup.filePrefix + '/' + modulePath);
 	else
-		addFilesToProject(moduleDir, project, includeList, excludeList, setup.filePrefix);
+		addFilesToProject(moduleDir, project, includeList, excludeList, pchIncludeRoot, pchDirs, pchExclude, setup.filePrefix);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -402,7 +404,8 @@ void XcodeProvider::outputMainProjectFile(const BuildSetup &setup) {
 // Files
 //////////////////////////////////////////////////////////////////////////
 void XcodeProvider::writeFileListToProject(const FileNode &dir, std::ostream &projectFile, const int indentation,
-										   const std::string &objPrefix, const std::string &filePrefix) {
+										   const std::string &objPrefix, const std::string &filePrefix,
+										   const std::string &pchIncludeRoot, const StringList &pchDirs, const StringList &pchExclude) {
 
 	// Ensure that top-level groups are generated for i.e. engines/
 	Group *group = touchGroupsForPath(filePrefix);
@@ -416,7 +419,7 @@ void XcodeProvider::writeFileListToProject(const FileNode &dir, std::ostream &pr
 		}
 		// Process child nodes
 		if (!node->children.empty())
-			writeFileListToProject(*node, projectFile, indentation + 1, objPrefix + node->name + '_', filePrefix + node->name + '/');
+			writeFileListToProject(*node, projectFile, indentation + 1, objPrefix + node->name + '_', filePrefix + node->name + '/', pchIncludeRoot, pchDirs, pchExclude);
 	}
 }
 
@@ -1024,11 +1027,13 @@ XcodeProvider::ValueList& XcodeProvider::getResourceFiles(const BuildSetup &setu
 		files.push_back("gui/themes/translations.dat");
 		files.push_back("dists/engine-data/access.dat");
 		files.push_back("dists/engine-data/achievements.dat");
+		files.push_back("dists/engine-data/classicmacfonts.dat");
 		files.push_back("dists/engine-data/cryo.dat");
 		files.push_back("dists/engine-data/cryomni3d.dat");
 		files.push_back("dists/engine-data/drascula.dat");
 		files.push_back("dists/engine-data/encoding.dat");
 		files.push_back("dists/engine-data/fonts.dat");
+		files.push_back("dists/engine-data/fonts-cjk.dat");
 		files.push_back("dists/engine-data/freescape.dat");
 		files.push_back("dists/engine-data/hadesch_translations.dat");
 		files.push_back("dists/engine-data/hugo.dat");
@@ -1052,7 +1057,9 @@ XcodeProvider::ValueList& XcodeProvider::getResourceFiles(const BuildSetup &setu
 		files.push_back("dists/engine-data/tony.dat");
 		files.push_back("dists/engine-data/toon.dat");
 		files.push_back("dists/engine-data/ultima.dat");
+		files.push_back("dists/engine-data/ultima8.dat");
 		files.push_back("dists/engine-data/wintermute.zip");
+		files.push_back("dists/ios7/ios-help.zip");
 		files.push_back("dists/ios7/LaunchScreen_ios.storyboard");
 		files.push_back("dists/tvos/LaunchScreen_tvos.storyboard");
 		files.push_back("dists/pred.dic");
@@ -1156,6 +1163,7 @@ XcodeProvider::ValueList& XcodeProvider::getResourceFiles(const BuildSetup &setu
 		files.push_back("LICENSES/COPYING.MKV");
 		files.push_back("LICENSES/COPYING.TINYGL");
 		files.push_back("LICENSES/COPYING.GLAD");
+		files.push_back("LICENSES/CatharonLicense.txt");
 		files.push_back("NEWS.md");
 		files.push_back("README.md");
 	}
@@ -1395,13 +1403,18 @@ void XcodeProvider::setupBuildConfiguration(const BuildSetup &setup) {
 	ADD_SETTING_QUOTE_VAR(iPhone_Debug, "PROVISIONING_PROFILE[sdk=iphoneos*]", "");
 	ADD_SETTING(iPhone_Debug, "SDKROOT", "iphoneos");
 	ADD_SETTING_QUOTE(iPhone_Debug, "TARGETED_DEVICE_FAMILY", "1,2");
-	ValueList scummvmIOS_defines;
-	ADD_DEFINE(scummvmIOS_defines, "\"$(inherited)\"");
-	ADD_DEFINE(scummvmIOS_defines, "IPHONE");
-	ADD_DEFINE(scummvmIOS_defines, "IPHONE_IOS7");
+	ValueList scummvmIOSsimulator_defines;
+	ADD_DEFINE(scummvmIOSsimulator_defines, "\"$(inherited)\"");
+	ADD_DEFINE(scummvmIOSsimulator_defines, "IPHONE");
+	ADD_DEFINE(scummvmIOSsimulator_defines, "IPHONE_IOS7");
 	if (CONTAINS_DEFINE(setup.defines, "USE_SDL_NET"))
-		ADD_DEFINE(scummvmIOS_defines, "WITHOUT_SDL");
-	ADD_SETTING_LIST(iPhone_Debug, "GCC_PREPROCESSOR_DEFINITIONS", scummvmIOS_defines, kSettingsNoQuote | kSettingsAsList, 5);
+		ADD_DEFINE(scummvmIOSsimulator_defines, "WITHOUT_SDL");
+	ADD_SETTING_LIST(iPhone_Debug, "\"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*]\"", scummvmIOSsimulator_defines, kSettingsNoQuote | kSettingsAsList, 5);
+	// Separate iphoneos and iphonesimulator definitions since simulator running on x86_64
+	// hosts doesn't support NEON
+	ValueList scummvmIOS_defines = scummvmIOSsimulator_defines;
+	ADD_DEFINE(scummvmIOS_defines, "SCUMMVM_NEON");
+	ADD_SETTING_LIST(iPhone_Debug, "\"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*]\"", scummvmIOS_defines, kSettingsNoQuote | kSettingsAsList, 5);
 	ADD_SETTING(iPhone_Debug, "ASSETCATALOG_COMPILER_APPICON_NAME", "AppIcon");
 	ADD_SETTING(iPhone_Debug, "ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME", "LaunchImage");
 
@@ -1553,13 +1566,18 @@ void XcodeProvider::setupBuildConfiguration(const BuildSetup &setup) {
 	ADD_SETTING_QUOTE_VAR(tvOS_Debug, "PROVISIONING_PROFILE[sdk=appletvos*]", "");
 	ADD_SETTING(tvOS_Debug, "SDKROOT", "appletvos");
 	ADD_SETTING_QUOTE(tvOS_Debug, "TARGETED_DEVICE_FAMILY", "3");
-	ValueList scummvmTVOS_defines;
-	ADD_DEFINE(scummvmTVOS_defines, "\"$(inherited)\"");
-	ADD_DEFINE(scummvmTVOS_defines, "IPHONE");
-	ADD_DEFINE(scummvmTVOS_defines, "IPHONE_IOS7");
+	ValueList scummvmTVOSsimulator_defines;
+	ADD_DEFINE(scummvmTVOSsimulator_defines, "\"$(inherited)\"");
+	ADD_DEFINE(scummvmTVOSsimulator_defines, "IPHONE");
+	ADD_DEFINE(scummvmTVOSsimulator_defines, "IPHONE_IOS7");
 	if (CONTAINS_DEFINE(setup.defines, "USE_SDL_NET"))
-		ADD_DEFINE(scummvmTVOS_defines, "WITHOUT_SDL");
-	ADD_SETTING_LIST(tvOS_Debug, "GCC_PREPROCESSOR_DEFINITIONS", scummvmTVOS_defines, kSettingsNoQuote | kSettingsAsList, 5);
+		ADD_DEFINE(scummvmTVOSsimulator_defines, "WITHOUT_SDL");
+	ADD_SETTING_LIST(tvOS_Debug, "\"GCC_PREPROCESSOR_DEFINITIONS[sdk=appletvsimulator*]\"", scummvmTVOSsimulator_defines, kSettingsNoQuote | kSettingsAsList, 5);
+	// Separate appletvos and appletvsimulator definitions since simulator running on x86_64
+	// hosts doesn't support NEON
+	ValueList scummvmTVOS_defines = scummvmTVOSsimulator_defines;
+	ADD_DEFINE(scummvmTVOS_defines, "SCUMMVM_NEON");
+	ADD_SETTING_LIST(tvOS_Debug, "\"GCC_PREPROCESSOR_DEFINITIONS[sdk=appletvos*]\"", scummvmTVOS_defines, kSettingsNoQuote | kSettingsAsList, 5);
 	ADD_SETTING(tvOS_Debug, "ASSETCATALOG_COMPILER_APPICON_NAME", "AppIcon");
 	ADD_SETTING(tvOS_Debug, "ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME", "LaunchImage");
 	tvOS_Debug_Object->addProperty("name", "Debug", "", kSettingsNoValue);
@@ -1643,6 +1661,7 @@ void XcodeProvider::setupDefines(const BuildSetup &setup) {
 	REMOVE_DEFINE(_defines, "IPHONE");
 	REMOVE_DEFINE(_defines, "IPHONE_IOS7");
 	REMOVE_DEFINE(_defines, "SDL_BACKEND");
+	REMOVE_DEFINE(_defines, "SCUMMVM_NEON");
 	ADD_DEFINE(_defines, "CONFIG_H");
 	ADD_DEFINE(_defines, "UNIX");
 	ADD_DEFINE(_defines, "HAS_FSEEKO_OFFT_64");

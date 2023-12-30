@@ -46,6 +46,10 @@ class GuiObject;
 class OptionsContainerWidget;
 }
 
+namespace DLC {
+class Store;
+}
+
 namespace Common {
 class EventManager;
 class MutexInternal;
@@ -264,6 +268,11 @@ protected:
 	FilesystemFactory *_fsFactory;
 
 	/**
+	 * Used by the DLC Manager implementation
+	 */
+	DLC::Store *_dlcStore;
+
+	/**
 	 * Used by the default clipboard implementation, for backends that don't
 	 * implement clipboard support.
 	 */
@@ -452,6 +461,12 @@ public:
 		kFeatureCursorPalette,
 
 		/**
+		 * Backends supporting this feature allow cursors to contain an alpha
+		 * channel.
+		 */
+		kFeatureCursorAlpha,
+
+		/**
 		 * Backends supporting this feature allow specifying a mask for a
 		 * cursor instead of a key color.
 		 */
@@ -570,6 +585,11 @@ public:
 		kFeatureShaders,
 
 		/**
+		* Support for downloading DLC packages.
+		*/
+		kFeatureDLC,
+
+		/**
 		* Support for using the native system file browser dialog
 		* through the DialogManager.
 		*/
@@ -579,6 +599,13 @@ public:
 		* For platforms that should not have a Quit button.
 		*/
 		kFeatureNoQuit,
+
+		/**
+		* The presence of this feature indicates that the backend uses a touchscreen.
+		*
+		* This feature has no associated state.
+		*/
+		kFeatureTouchscreen,
 
 		/**
 		* Arm-v8 requires NEON extensions, but before that, NEON was just
@@ -1451,7 +1478,7 @@ public:
 	 */
 	virtual void setCursorPalette(const byte *colors, uint start, uint num) {}
 
-	
+
 
 	/**
 	 * Get the system-configured double-click time interval.
@@ -1719,6 +1746,15 @@ public:
 #endif
 
 	/**
+	 * Return the DLC Store, used to implement DLC manager functions.
+	 *
+	 * @return The Store for the current architecture/distribution platform.
+	 */
+	virtual DLC::Store *getDLCStore() {
+		return _dlcStore;
+	}
+
+	/**
 	 * Return the FilesystemFactory object, depending on the current architecture.
 	 *
 	 * @return The FSNode factory for the current architecture.
@@ -1798,6 +1834,18 @@ public:
 	 * @param target   name of a config manager target
 	 */
 	virtual GUI::OptionsContainerWidget *buildBackendOptionsWidget(GUI::GuiObject *boss, const Common::String &name, const Common::String &target) const { return nullptr; }
+
+	/**
+	 * Return list of strings used for building help dialog
+	 *
+	 * The strings represented in triplets:
+	 *   - Name of a tab (will be translated)
+	 *   - ZIP pack name with images (optional)
+	 *   - Text of the tab with Markdown formatting (also be translated)
+	 *
+	 * The string list is null-terminated.
+	 */
+	 virtual const char * const *buildHelpDialogData() { return nullptr; }
 
 	/**
 	 * Notify the backend that the settings editable from the game tab in the

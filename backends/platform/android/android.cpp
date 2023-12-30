@@ -83,6 +83,7 @@
 #include "common/mutex.h"
 #include "common/events.h"
 #include "common/config-manager.h"
+#include "common/translation.h"
 #include "graphics/cursorman.h"
 
 const char *android_log_tag = "ScummVM";
@@ -633,7 +634,8 @@ bool OSystem_Android::hasFeature(Feature f) {
 			f == kFeatureOpenUrl ||
 			f == kFeatureClipboardSupport ||
 			f == kFeatureKbdMouseSpeed ||
-			f == kFeatureJoystickDeadzone) {
+			f == kFeatureJoystickDeadzone ||
+			f == kFeatureTouchscreen) {
 		return true;
 	}
 	/* Even if we are using the 2D graphics manager,
@@ -1022,5 +1024,103 @@ void *OSystem_Android::getOpenGLProcAddress(const char *name) const {
 	return ptr;
 }
 #endif
+
+static const char * const helpTabs[] = {
+
+_s("Touch Controls"),
+"android-help.zip",
+_s(
+"## Touch control modes\n"
+"The touch control mode can be changed by tapping or clicking on the controller icon in the upper right corner"
+"\n"
+"### Direct mouse \n"
+"\n"
+"The touch controls are direct. The pointer jumps to where the finger touches the screen (default for menus).\n"
+"\n"
+"  ![Direct mouse mode](mouse.png \"Direct mouse mode\"){w=10em}\n"
+"\n"
+"### Touchpad emulation \n"
+"\n"
+"The touch controls are indirect, like on a laptop touchpad.\n"
+"\n"
+"  ![Touchpad mode](touchpad.png \"Touchpad mode\"){w=10em}\n"
+"\n"
+"### Gamepad emulation \n"
+"\n"
+"Fingers must be placed on lower left and right of the screen to emulate a directional pad and action buttons.\n"
+"\n"
+"  ![Gamepad mode](gamepad.png \"Gamepad mode\"){w=10em}\n"
+"\n"
+"To select the preferred touch mode for menus, 2D games, and 3D games, go to **Global Options > Backend > Choose the preferred touch mode**.\n"
+"\n"
+"## Touch actions \n"
+"\n"
+"### Two finger scroll \n"
+"\n"
+"To scroll, slide two fingers up or down the screen"
+"\n"
+"### Two finger tap\n"
+"\n"
+"To do a two finger tap, hold one finger down and then tap with a second finger.\n"
+"\n"
+"### Three finger tap\n"
+"\n"
+"To do a three finger tap, start with holding down one finger and progressively touch down the other two fingers, one at a time, while still holding down the previous fingers. Imagine you are impatiently tapping your fingers on a surface, but then slow down that movement so it is rhythmic, but not too slow.\n"
+"\n"
+"### Immersive Sticky fullscreen mode\n"
+"\n"
+"Swipe from the edge to reveal the system bars.  They remain semi-transparent and disappear after a few seconds unless you interact with them.\n"
+"\n"
+"### Global Main Menu\n"
+"\n"
+"To open the Global Main Menu, tap on the menu icon at the top right of the screen.\n"
+"\n"
+"  ![Menu icon](menu.png \"Menu icon\"){w=10em}\n"
+"\n"
+"## Virtual keyboard\n"
+"\n"
+"To open the virtual keyboard, long press on the controller icon at the top right of the screen, or tap on any editable text field. To hide the virtual keyboard, tap the controller icon again, or tap outside the text field.\n"
+"\n"
+"\n"
+"  ![Keybpard icon](keyboard.png \"Keyboard icon\"){w=10em}\n"
+"\n"
+	),
+
+_s("Adding Games"),
+"android-help.zip",
+_s(
+"## Adding Games \n"
+"\n"
+"1. Select **Add Game...** from the launcher. \n"
+"\n"
+"2. Inside the ScummVM file browser, select **Go Up** until you reach the root folder which has the **<Add a new folder>** option. \n"
+"\n"
+"  ![ScummVM file browser root](browser-root.png \"ScummVM file browser root\"){w=70%}\n"
+"\n"
+"3. Double-tap **<Add a new folder>**. In your device's file browser, navigate to the folder containing all your game folders. For example, **SD Card > ScummVMgames**. \n"
+"\n"
+"4. Select **Use this folder**. \n"
+"\n"
+"  ![OS selectable folder](fs-folder.png \"OS selectable folder\"){w=70%}\n"
+"\n"
+"5. Select **ALLOW** to give ScummVM permission to access the folder. \n"
+"\n"
+"  ![OS access permission dialog](fs-permission.png \"OS access permission\"){w=70%}\n"
+"\n"
+"6. In the ScummVM file browser, double-tap to browse through your added folder. Add a game by selecting the sub-folder containing the game files, then tap **Choose**. \n"
+"\n"
+"  ![SAF folder added](browser-folder-in-list.png \"SAF folder added\"){w=70%}\n"
+"\n"
+"Step 2 and 3 are done only once. To add more games, repeat Steps 1 and 6. \n"
+"\n"
+"See our [Android documentation](https://docs.scummvm.org/en/latest/other_platforms/android.html) for more information.\n"
+	),
+
+0 // End of list
+};
+
+const char * const *OSystem_Android::buildHelpDialogData() {
+	return helpTabs;
+}
 
 #endif

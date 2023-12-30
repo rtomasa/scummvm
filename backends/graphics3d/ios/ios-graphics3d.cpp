@@ -82,6 +82,8 @@ void iOSGraphics3dManager::initSurface() {
 		error("Framebuffer is not complete! status: %d", status);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	_old_touch_mode = kTouchModeTouchpad;
+
 	//initSize will be called to set the size
 }
 
@@ -170,6 +172,7 @@ bool iOSGraphics3dManager::hasFeature(OSystem::Feature f) const {
 	if ((f == OSystem::kFeatureOpenGLForGame) ||
 		(f == OSystem::kFeatureAspectRatioCorrection) ||
 		(f == OSystem::kFeatureStretchMode) ||
+		(f == OSystem::kFeatureCursorAlpha) ||
 		(f == OSystem::kFeatureOverlaySupportsAlpha && _overlayFormat.aBits() > 3)) {
 		return true;
 	}
@@ -424,6 +427,16 @@ void iOSGraphics3dManager::showOverlay(bool inGUI) {
 		return;
 	}
 
+	// Don't change touch mode when not changing mouse coordinates
+	if (inGUI) {
+		_old_touch_mode = dynamic_cast<OSystem_iOS7 *>(g_system)->getCurrentTouchMode();
+		// in 3D, in overlay
+		dynamic_cast<OSystem_iOS7 *>(g_system)->applyTouchSettings(true, true);
+	} else if (_overlayInGUI) {
+		// Restore touch mode active before overlay was shown
+		dynamic_cast<OSystem_iOS7 *>(g_system)->setCurrentTouchMode(static_cast<TouchMode>(_old_touch_mode));
+	}
+
 	WindowedGraphicsManager::showOverlay(inGUI);
 
 	delete _overlayBackground;
@@ -447,10 +460,27 @@ void iOSGraphics3dManager::hideOverlay() {
 	if (!_overlayVisible) {
 		return;
 	}
+
+	if (_overlayInGUI) {
+		// Restore touch mode active before overlay was shown
+		dynamic_cast<OSystem_iOS7 *>(g_system)->setCurrentTouchMode(static_cast<TouchMode>(_old_touch_mode));
+	}
+
 	WindowedGraphicsManager::hideOverlay();
 
 	delete _overlayBackground;
 	_overlayBackground = nullptr;
+
+	if (_surfaceRenderer) {
+		_surfaceRenderer->prepareState();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		_surfaceRenderer->restorePreviousState();
+		updateScreen();
+		_surfaceRenderer->prepareState();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		_surfaceRenderer->restorePreviousState();
+		updateScreen();
+	}
 }
 
 bool iOSGraphics3dManager::showMouse(bool visible) {

@@ -50,6 +50,12 @@ void FreescapeEngine::titleScreen() {
 					break;
 				}
 			break;
+			case Common::EVENT_RBUTTONDOWN:
+				// fallthrough
+			case Common::EVENT_LBUTTONDOWN:
+				if (g_system->hasFeature(OSystem::kFeatureTouchscreen))
+					i = maxWait;
+				break;
 			default:
 				break;
 			}
@@ -113,9 +119,12 @@ void FreescapeEngine::borderScreen() {
 		return;
 
 	if (isDriller()) {
+		if (isAmiga() || isAtariST())
+			return; // TODO: add animation
+
 		drawBorderScreenAndWait(nullptr);
 
-		if (isAmiga() || isAtariST() || isDemo())
+		if (isDemo())
 			return;
 	}
 
@@ -137,6 +146,102 @@ void FreescapeEngine::borderScreen() {
 		delete surface;
 	}
 }
+
+void FreescapeEngine::drawFullscreenMessage(Common::String message, uint32 front, Graphics::Surface *surface) {
+	uint32 black = _gfx->_texturePixelFormat.ARGBToColor(0xFF, 0x00, 0x00, 0x00);
+	uint32 color = _gfx->_texturePixelFormat.ARGBToColor(0x00, 0x00, 0x00, 0x00);
+
+	surface->fillRect(_fullscreenViewArea, color);
+	surface->fillRect(_viewArea, black);
+	int x = 0;
+	int y = 0;
+	int letterPerLine = 0;
+	int numberOfLines = 0;
+
+	if (isDOS()) {
+		x = 50;
+		y = 32;
+		letterPerLine = 28;
+		numberOfLines = 10;
+	} else if (isSpectrum() || isCPC()) {
+		x = 60;
+		y = 35;
+		letterPerLine = 24;
+		numberOfLines = 12;
+	}
+
+	for (int i = 0; i < numberOfLines; i++) {
+		Common::String line = message.substr(letterPerLine * i, letterPerLine);
+		debug("'%s' %d", line.c_str(), line.size());
+		drawStringInSurface(line, x, y, front, black, surface);
+		y = y + 8;
+	}
+	drawFullscreenSurface(surface);
+}
+
+void FreescapeEngine::drawFullscreenMessageAndWait(Common::String message) {
+	_savedScreen = _gfx->getScreenshot();
+	uint32 color = 0;
+	switch (_renderMode) {
+		case Common::kRenderCPC:
+			color = 14;
+			break;
+		case Common::kRenderCGA:
+			color = 1;
+			break;
+		case Common::kRenderZX:
+			color = 6;
+			break;
+		default:
+			color = 14;
+	}
+	uint8 r, g, b;
+	_gfx->readFromPalette(color, r, g, b);
+	uint32 front = _gfx->_texturePixelFormat.ARGBToColor(0xFF, r, g, b);
+
+	Graphics::Surface *surface = new Graphics::Surface();
+	surface->create(_screenW, _screenH, _gfx->_texturePixelFormat);
+
+	Common::Event event;
+	bool cont = true;
+	while (!shouldQuit() && cont) {
+		while (g_system->getEventManager()->pollEvent(event)) {
+
+			// Events
+			switch (event.type) {
+			case Common::EVENT_KEYDOWN:
+				if (event.kbd.keycode == Common::KEYCODE_SPACE) {
+					cont = false;
+				}
+				break;
+			case Common::EVENT_SCREEN_CHANGED:
+				_gfx->computeScreenViewport();
+				break;
+			case Common::EVENT_RBUTTONDOWN:
+				// fallthrough
+			case Common::EVENT_LBUTTONDOWN:
+				if (g_system->hasFeature(OSystem::kFeatureTouchscreen))
+					cont = false;
+				break;
+			default:
+				break;
+			}
+		}
+		drawBorder();
+		if (_currentArea)
+			drawUI();
+		drawFullscreenMessage(message, front, surface);
+		_gfx->flipBuffer();
+		g_system->updateScreen();
+		g_system->delayMillis(15); // try to target ~60 FPS
+	}
+
+	_savedScreen->free();
+	delete _savedScreen;
+	surface->free();
+	delete surface;
+}
+
 
 void FreescapeEngine::drawBorderScreenAndWait(Graphics::Surface *surface) {
 	int maxWait = 6 * 60;
@@ -161,6 +266,13 @@ void FreescapeEngine::drawBorderScreenAndWait(Graphics::Surface *surface) {
 				default:
 					break;
 				}
+				break;
+			case Common::EVENT_RBUTTONDOWN:
+				// fallthrough
+			case Common::EVENT_LBUTTONDOWN:
+				if (g_system->hasFeature(OSystem::kFeatureTouchscreen))
+					i = maxWait;
+				break;
 			default:
 				break;
 			}

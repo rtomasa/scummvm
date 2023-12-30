@@ -24,6 +24,7 @@
 
 #include "common/hashmap.h"
 #include "common/list.h"
+#include "common/mutex.h"
 #include "common/stack.h"
 #include "common/events.h"
 
@@ -88,7 +89,9 @@ enum {
 	kWMMode32bpp				= (1 << 8),
 	kWMNoScummVMWallpaper		= (1 << 9),
 	kWMModeWin95				= (1 << 10),
-	kWMModeForceMacFontsInWin95 = (1 << 11) // Enforce Mac font for languages which don't have glyphs in ms_sans_serif.ttf
+	kWMModeForceMacFontsInWin95 = (1 << 11), // Enforce Mac font for languages which don't have glyphs in ms_sans_serif.ttf
+	kWMModeNoCursorOverride     = (1 << 12),
+	kWMModeForceMacBorder       = (1 << 13),
 };
 
 }
@@ -306,7 +309,7 @@ public:
 	 * @param window Pointer to the widget to background, nullptr for no widget
 	 */
 	void setBackgroundWindow(MacWindow *window);
-	
+
 	MacPatterns  &getBuiltinPatterns() { return _builtinPatterns; }
 
 	MacWidget *getActiveWidget() { return _activeWidget; }
@@ -423,7 +426,7 @@ private:
 	void adjustDimensions(const Common::Rect &clip, const Common::Rect &dims, int &adjWidth, int &adjHeight);
 
 public:
-	TransparentSurface *_desktopBmp;
+	Surface *_desktopBmp;
 	ManagedSurface *_desktop;
 	PixelFormat _pixelformat;
 
@@ -432,6 +435,7 @@ public:
 	Common::Rect _screenDims;
 
 private:
+	Common::Mutex _mutex;
 	Common::List<BaseMacWindow *> _windowStack;
 	Common::HashMap<uint, BaseMacWindow *> _windows;
 
@@ -457,9 +461,9 @@ private:
 	void *_engineR;
 	void (*_redrawEngineCallback)(void *engine);
 
-	MacCursorType _tempType;
+	MacCursorType _tempType = kMacCursorArrow;
 	Common::Stack<MacCursorType> _cursorTypeStack;
-	Cursor *_cursor;
+	Cursor *_cursor = nullptr;
 
 	MacWidget *_activeWidget;
 	MacWidget *_lockedWidget;
@@ -475,6 +479,8 @@ private:
 
 	Common::U32String _clipboard;
 };
+
+const Common::U32String::value_type *readHex(uint16 *res, const Common::U32String::value_type *s, int len);
 
 } // End of namespace Graphics
 

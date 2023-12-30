@@ -24,10 +24,10 @@
 #include "common/savefile.h"
 #include "common/serializer.h"
 #include "common/system.h"
-#include "common/compression/zlib.h"
 
 #include "scumm/actor.h"
 #include "scumm/charset.h"
+#include "scumm/gfx_mac.h"
 #include "scumm/imuse_digi/dimuse_engine.h"
 #include "scumm/imuse/imuse.h"
 #include "scumm/players/player_towns.h"
@@ -68,7 +68,7 @@ struct SaveInfoSection {
 
 #define SaveInfoSectionSize (4+4+4 + 4+4 + 4+2)
 
-#define CURRENT_VER 109
+#define CURRENT_VER 111
 #define INFOSECTION_VERSION 2
 
 #pragma mark -
@@ -79,6 +79,9 @@ Common::Error ScummEngine::loadGameState(int slot) {
 }
 
 bool ScummEngine::canLoadGameStateCurrently() {
+	if (!_setupIsComplete)
+		return false;
+
 	// FIXME: For now always allow loading in V0-V3 games
 	// FIXME: Actually, we might wish to support loading in more places.
 	// As long as we are sure it won't cause any problems... Are we
@@ -139,6 +142,9 @@ Common::Error ScummEngine::saveGameState(int slot, const Common::String &desc, b
 }
 
 bool ScummEngine::canSaveGameStateCurrently() {
+	if (!_setupIsComplete)
+		return false;
+
 	// Disallow saving in v0-v3 games when a 'prequel' to a cutscene is shown.
 	// This is a blank screen with text, and while this is shown, saving should
 	// be disabled, as no room is set.
@@ -568,7 +574,13 @@ bool ScummEngine::saveState(Common::WriteStream *out, bool writeHeader) {
 bool ScummEngine::saveState(int slot, bool compat, Common::String &filename) {
 	bool saveFailed = false;
 
+	// We can't just use _saveTemporaryState here, because at
+	// this point it might not contain an updated value.
+	_pauseSoundsDuringSave = !compat;
+
 	PauseToken pt = pauseEngine();
+
+	_pauseSoundsDuringSave = true;
 
 	Common::WriteStream *out = openSaveFileForWriting(slot, compat, filename);
 	if (!out) {
@@ -669,11 +681,11 @@ bool ScummEngine::loadState(int slot, bool compat, Common::String &filename) {
 	if (hdr.ver == VER(7))
 		hdr.ver = VER(8);
 
-	hdr.name[sizeof(hdr.name)-1] = 0;
+	hdr.name[sizeof(hdr.name) - 1] = 0;
 	_saveLoadDescription = hdr.name;
 
 	// Set to 0 during load to minimize stuttering
-	if (_musicEngine)
+	if (_musicEngine && !compat)
 		_musicEngine->setMusicVolume(0);
 
 	// Unless specifically requested with _saveSound, we do not save the iMUSE
@@ -687,9 +699,18 @@ bool ScummEngine::loadState(int slot, bool compat, Common::String &filename) {
 	//
 	// If we don't have iMUSE at all we may as well stop the sounds. The previous
 	// default behavior here was to stopAllSounds on all state restores.
+	//
+	// HE games explicitly do not stop sounds when loading a "heap save",
+	// under version 80!
 
-	if (!_imuse || _saveSound || !_saveTemporaryState)
+	if ((!_imuse || _saveSound || !compat) &&
+		!(compat && _game.heversion < 80)) {
 		_sound->stopAllSounds();
+	} else if (compat && !_imuseDigital && _game.heversion == 0) {
+		// Still, we have to stop the talking sound even
+		// if the save state is temporary.
+		_sound->stopTalkSound();
+	}
 
 #ifdef ENABLE_SCUMM_7_8
 	if (_imuseDigital) {
@@ -699,7 +720,8 @@ bool ScummEngine::loadState(int slot, bool compat, Common::String &filename) {
 
 	_sound->stopCD();
 
-	_sound->pauseSounds(true);
+	if (!_saveTemporaryState)
+		_sound->pauseSounds(true);
 
 	closeRoom();
 
@@ -849,6 +871,9 @@ bool ScummEngine::loadState(int slot, bool compat, Common::String &filename) {
 	if (_macScreen)
 		_macScreen->fillRect(Common::Rect(_macScreen->w, _macScreen->h), 0);
 	clearTextSurface();
+
+	if (_macGui)
+		_macGui->resetAfterLoad();
 
 	_lastCodePtr = nullptr;
 	_drawObjectQueNr = 0;
@@ -1254,6 +1279,7 @@ bool ScummEngine::changeSavegameName(int slot, char *newName) {
 		if (in->err()) {
 			warning("ScummEngine::changeSavegameName(): Error in input file stream, aborting...");
 			delete in;
+			free(saveBuffer);
 			return false;
 		}
 	}
@@ -1261,18 +1287,21 @@ bool ScummEngine::changeSavegameName(int slot, char *newName) {
 	delete in;
 
 	Common::WriteStream *out = openSaveFileForWriting(slot, false, filename);
-	saveSaveGameHeader(out, hdr);
 
 	if (!out) {
 		warning("ScummEngine::changeSavegameName(): Couldn't open output file, aborting...");
+		free(saveBuffer);
 		return false;
 	}
+
+	saveSaveGameHeader(out, hdr);
 
 	for (uint i = 0; i < (uint)bufferSizeNoHdr; i++) {
 		out->writeByte(saveBuffer[i]);
 
 		if (out->err()) {
 			warning("ScummEngine::changeSavegameName(): Error in output file stream, aborting...");
+			free(saveBuffer);
 			delete out;
 			return false;
 		}
@@ -1282,10 +1311,12 @@ bool ScummEngine::changeSavegameName(int slot, char *newName) {
 
 	if (out->err()) {
 		warning("ScummEngine::changeSavegameName(): Error in output file stream after finalizing...");
+		free(saveBuffer);
 		delete out;
 		return false;
 	}
 
+	free(saveBuffer);
 	delete out;
 
 	return true;
@@ -1442,15 +1473,22 @@ void ScummEngine::saveLoadWithSerializer(Common::Serializer &s) {
 	// Post-load fix for broken SAMNMAX savegames which contain invalid
 	// cursor values; the value we're setting here should not count since
 	// it's being replaced by the post-load script, as long as it's not zero.
-	// The same also happens for the Mac version of INDY3: the cursor was being
-	// handled directly with a CursorMan.replaceCursor() without specifying any
-	// values for the _cursor object (#14498). Let's fix that with the proper values.
-	if ((_game.version == 6 || (_game.id == GID_INDY3 && _macScreen)) &&
-		(_cursor.width == 0 || _cursor.height == 0)) {
-		_cursor.width = 15;
-		_cursor.height = 15;
-		_cursor.hotspotX = 7;
-		_cursor.hotspotY = 7;
+	// The same also happens for the Mac versions of INDY3 and Loom: the cursor
+	// was being handled directly with a CursorMan.replaceCursor() without
+	// specifying any values for the _cursor object (#14498). Let's fix that
+	// with the proper values.
+	if (_cursor.width == 0 || _cursor.height == 0) {
+		if (_game.version == 6 || (_game.id == GID_INDY3 && _game.platform == Common::kPlatformMacintosh)) {
+			_cursor.width = 15;
+			_cursor.height = 15;
+			_cursor.hotspotX = 7;
+			_cursor.hotspotY = 7;
+		} else if (_game.id == GID_LOOM && _game.platform == Common::kPlatformMacintosh) {
+			_cursor.width = 16;
+			_cursor.height = 16;
+			_cursor.hotspotX = 3;
+			_cursor.hotspotY = 2;
+		}
 	}
 
 	s.syncAsByte(_cursor.animate, VER(20));
@@ -1857,7 +1895,7 @@ void ScummEngine::saveLoadWithSerializer(Common::Serializer &s) {
 	// Set video mode var to the current actual mode, not the one that was enabled when the game was saved.
 	// At least for Loom this fixes glitches, since the game actually reads the var and makes actor palette
 	// adjustments based on that. This is a bug that happens in the original interpreter, too.
-	if (s.isLoading() && VAR_VIDEOMODE != 0xFF) {
+	if (s.isLoading() && VAR_VIDEOMODE != 0xFF && _game.heversion == 0) {
 		int videoModeSaved = VAR(VAR_VIDEOMODE);
 		setVideoModeVarToCurrentConfig();
 		// For MI1EGA we need to know if the savegame is from a different render mode, so we can apply some
@@ -2038,7 +2076,7 @@ void ScummEngine_v5::saveLoadWithSerializer(Common::Serializer &s) {
 	// invisible after loading.
 
 	if (s.isLoading() && _game.platform == Common::kPlatformMacintosh) {
-		if ((_game.id == GID_LOOM && !_macCursorFile.empty()) || (_game.id == GID_INDY3 && _macScreen)) {
+		if ((_game.id == GID_LOOM && !_macCursorFile.empty()) || _macGui) {
 			setBuiltinCursor(0);
 		}
 	}

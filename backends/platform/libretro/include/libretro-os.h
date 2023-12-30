@@ -17,9 +17,6 @@
 #ifndef BACKENDS_LIBRETRO_OS_H
 #define BACKENDS_LIBRETRO_OS_H
 
-#include <libretro.h>
-#include <retro_miscellaneous.h>
-
 #include "audio/mixer_intern.h"
 #include "base/main.h"
 #include "backends/base-backend.h"
@@ -30,16 +27,14 @@
 #include "graphics/palette.h"
 #include "graphics/surface.h"
 
-#define LIBRETRO_G_SYSTEM dynamic_cast<OSystem_libretro *>(g_system)
+#define BASE_CURSOR_SPEED 4
+#define CURSOR_STATUS_DOING_JOYSTICK  (1 << 0)
+#define CURSOR_STATUS_DOING_MOUSE     (1 << 1)
+#define CURSOR_STATUS_DOING_X         (1 << 2)
+#define CURSOR_STATUS_DOING_Y         (1 << 3)
+#define CURSOR_STATUS_DOING_SLOWER    (1 << 4)
 
-extern retro_log_printf_t log_cb;
-extern bool timing_inaccuracies_is_enabled(void);
-extern void reset_performance_tuner(void);
-extern void retro_osd_notification(const char* msg);
-extern float frame_rate;
-extern uint16 sample_rate;
-extern const char * retro_get_system_dir(void);
-extern const char * retro_get_save_dir(void);
+#define LIBRETRO_G_SYSTEM dynamic_cast<OSystem_libretro *>(g_system)
 
 /**
  *  Dummy mutex implementation
@@ -54,12 +49,14 @@ public:
 
 class LibretroPalette {
 public:
+	const byte *_prevColorsSource;
 	unsigned char _colors[256 * 3];
 	LibretroPalette(void);
 	~LibretroPalette(void) {};
 	void set(const byte *colors, uint start, uint num);
 	void get(byte *colors, uint start, uint num) const;
 	unsigned char *getColor(uint aIndex) const;
+	void reset(void) { _prevColorsSource = NULL; }
 };
 
 class OSystem_libretro : public EventsBaseBackend, public PaletteManager {
@@ -77,14 +74,13 @@ private:
 	float _dpadYAcc;
 	float _dpadXVel;
 	float _dpadYVel;
-	unsigned _joypadnumpadLast;
+	float _adjusted_cursor_speed;
+	float _inverse_acceleration_time;
 	uint32 _startTime;
 	uint8 _threadSwitchCaller;
+	uint8 _cursorStatus;
 	Common::String s_systemDir;
 	Common::String s_saveDir;
-	Common::String s_extraDir;
-	Common::String s_themeDir;
-	Common::String s_lastDir;
 	static Common::List<Common::Event> _events;
 
 public:
@@ -99,9 +95,6 @@ public:
 	bool _overlayInGUI;
 	bool _mouseDontScale;
 	bool _mouseButtons[2];
-	bool _joypadmouseButtons[2];
-	bool _joypadkeyboardButtons[8];
-	bool _joypadnumpadActive;
 	bool _ptrmouseButton;
 	bool _mousePaletteEnabled;
 	bool _mouseVisible;
@@ -115,10 +108,14 @@ public:
 	bool hasFeature(Feature f) override;
 	void setFeatureState(Feature f, bool enable) override;
 	bool getFeatureState(Feature f) override;
+	void refreshRetroSettings(void);
 	void destroy(void);
 	void quit() override {}
+private:
+	bool checkPathSetting(const char *setting, Common::String const &defaultPath, bool isDirectory = true);
 
 	/* Graphics */
+public:
 	Common::List<Graphics::PixelFormat> getSupportedFormats() const override;
 	const GraphicsMode *getSupportedGraphicsModes(void) const override;
 	void initSize(uint width, uint height, const Graphics::PixelFormat *format) override;
@@ -173,12 +170,13 @@ private:
 
 	/* Inputs */
 public:
-	void processMouse(retro_input_state_t aCallback, int device, float gampad_cursor_speed, float gamepad_acceleration_time, bool analog_response_is_quadratic, int analog_deadzone, float mouse_speed);
-	static void processKeyEvent(bool down, unsigned keycode, uint32_t character, uint16_t key_modifiers);
+	void processInputs(void);
+	static void processKeyEvent(bool down, unsigned keycode, uint32 character, uint16 key_modifiers);
 	void setShakePos(int shakeXOffset, int shakeYOffset) override {}
 private:
 	void updateMouseXY(float deltaAcc, float * cumulativeXYAcc, int doing_x);
-
+	void getMouseXYFromAnalog(bool is_x, int16 coor);
+	void getMouseXYFromButton(bool is_x, int16 sign);
 };
 
 #endif

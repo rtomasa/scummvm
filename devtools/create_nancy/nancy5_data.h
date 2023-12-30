@@ -33,7 +33,7 @@ const GameConstants _nancy5Constants ={
 		21, 22, 23, 24, 25, 26, 27, 28, 29, 30 },
 	36,
 	7,
-	7000
+	4000
 };
 
 const Common::Array<Common::Language> _nancy5LanguagesOrder = {
@@ -45,17 +45,17 @@ const Common::Array<Common::Array<ConditionalDialogue>> _nancy5ConditionalDialog
 {	// Brady, 7 responses + 1 repeat
 	{	0, 1050, "NBA50",
 		{ { kEv, 142, true }, { kEv, 47, false } } },
-	{	1, 1051, "NBA51",
+	{	1, 1051, "NBA051",
 		{ { kEv, 116, true }, { kEv, 46, false } } },
-	{	1, 1051, "NBA51",
+	{	1, 1051, "NBA051",
 		{ { kEv, 138, true }, { kEv, 46, false } } },
-	{	2, 1052, "NBA52",
+	{	2, 1052, "NBA052",
 		{ { kEv, 129, true }, { kEv, 40, false } } },
-	{	3, 1053, "NBA53",
+	{	3, 1053, "NBA053",
 		{ { kEv, 129, true }, { kEv, 42, false } } },
 	{	4, 1054, "NNF652",
 		{ { kEv, 129, true }, { kEv, 119, true }, { kEv, 37, false } } },
-	{	5, 1060, "NBA61",
+	{	5, 1060, "NBA061",
 		{ { kEv, 43, true }, { kEv, 45, false } } },
 	{	6, 1061, "NNF654",
 		{ { kEv, 58, true }, { kEv, 44, false } } },
@@ -76,15 +76,19 @@ const Common::Array<Common::Array<ConditionalDialogue>> _nancy5ConditionalDialog
 	{	11, 1256, "NSM256",
 		{ { kEv, 49, true }, { kEv, 216, false } } },
 },
-{	// Joseph, 9 responses
+{	// Joseph, 9 responses + 2 repeat
 	{	12, 1450, "NJH450",
 		{ { kEv, 132, true }, { kEv, 164, true }, { kEv, 105, false } } },
 	{	13, 1452, "NJH452",
 		{ { kEv, 270, true }, { kEv, 59, false }, { kEv, 117, false } } },
 	{	14, 1453, "NJH453",
-		{ { kEv, 107, true }, { kEv, 152, true }, { kEv, 120, false } } },
+		{ { kEv, 107, true }, { kEv, 120, false } } },
+	{	14, 1453, "NJH453",
+		{ { kEv, 152, true }, { kEv, 120, false } } },
 	{	15, 1455, "NJH455",
-		{ { kEv, 152, true }, { kEv, 155, true }, { kEv, 108, false } } },
+		{ { kEv, 152, true }, { kEv, 108, false } } },
+	{	15, 1455, "NJH455",
+		{ { kEv, 155, true }, { kEv, 108, false } } },
 	{	16, 1456, "NJH456",
 		{ { kEv, 166, true }, { kEv, 111, false } } },
 	{	17, 1457, "NJH457",
@@ -102,7 +106,7 @@ const Common::Array<Common::Array<ConditionalDialogue>> _nancy5ConditionalDialog
 	{	21, 1650, "NNF650",
 		{ { kEv, 166, true }, { kEv, 156, false } } },
 	{	22, 1651, "NNF651",
-		{ { kEv, 165, true }, { kEv, 155, false } } },
+		{ { kEv, 135, true }, { kEv, 155, false } } },
 	{	4, 1652, "NNF652",
 		{ { kEv, 135, true }, { kEv, 119, true }, { kEv, 147, false } } },
 	{	6, 1654, "NNF654",
@@ -335,18 +339,18 @@ const Common::Array<Common::Array<const char *>> _nancy5ConditionalDialogueTexts
 const Common::Array<Common::Array<const char *>> _nancy5GoodbyeTexts = {
 {	// English
 	"I'll talk to you later, Brady.<h>", // NBA090
-	"OK, you two. I'll talk to you soon!<h>", // NBG90
 	"I think your phone's about to ring.<h>", // NSM290
 	"Gotta go now!<h>", // NJH90
 	"Catch ya later.<h>", // NNF690
+	"OK, you two. I'll talk to you soon!<h>", // NBG90
 	"Bye, Ned.<h>" // NDN90
 },
 {	// Russian
 	"\xcf\xee\xe3\xee\xe2\xee\xf0\xe8\xec \xef\xee\xe7\xe6\xe5, \xc1\xf0\xfd\xe4\xe8.<h>", // NBA090
-	"\xcc\xed\xe5 \xef\xee\xf0\xe0. \xdf \xe2\xe0\xec \xef\xe5\xf0\xe5\xe7\xe2\xee\xed\xfe!<h>", // NBG90
 	"\xca\xe0\xe6\xe5\xf2\xf1\xff, \xf3 \xe2\xe0\xf1 \xec\xed\xee\xe3\xee \xe4\xe5\xeb. \xcd\xe5 \xe1\xf3\xe4\xf3 \xec\xe5\xf8\xe0\xf2\xfc.<h>", // NSM290
 	"\xcc\xed\xe5 \xef\xee\xf0\xe0!<h>", // NJH90
 	"\xcf\xee\xea\xe0.<h>", // NNF690
+	"\xcc\xed\xe5 \xef\xee\xf0\xe0. \xdf \xe2\xe0\xec \xef\xe5\xf0\xe5\xe7\xe2\xee\xed\xfe!<h>", // NBG90
 	"\xcf\xee\xea\xe0, \xcd\xfd\xe4.<h>", // NDN90
 }
 };
@@ -354,6 +358,11 @@ const Common::Array<Common::Array<const char *>> _nancy5GoodbyeTexts = {
 const Common::Array<const char *> _nancy5TelephoneRinging = {
 	"ringing...<n><e>", // English
 	"\xc3\xf3\xe4\xea\xe8...  <n><e>" // Russian
+};
+
+const Common::Array<const char *> _nancy5EmptySaveStrings = {
+	"Nothing Saved Here",	// English
+	"\xc3\xf3\xf1\xf2\xee"	// Russian
 };
 
 const Common::Array<const char *> _nancy5EventFlagNames = {
@@ -813,6 +822,28 @@ const Common::Array<const char *> _nancy5EventFlagNames = {
 	"EV_Empty1453",
 	"EV_Empty1454",
 	"EV_TBD"
+};
+
+// Patch notes:
+// Both of the softlock patch files are described on HeR Interactive's website,
+// but not actually present in the file they distribute. Thus, the fixes are ours.
+// - S3503.cif blocks the transition between day 2 and 3 until the player obtains both the flash paper
+// 	 and the safe key. This is not the most graceful way to handle the endgame softlocks, as both items
+//   would technically be obtainable on day 3 as well; however, it is the least intrusive one. Moreover,
+//   it seems to be what the original devs were planning to do; there is a check for the flash paper in
+//   the exact scene that we patch. However, failing that check simply locks you in the room forever,
+//   because they seem to have forgotten to finish the softlock fix.
+// - S3218 removes the check for close captioning which would result in the player being unable to
+//   close Simone's purse without having subtitles on. Technically not a softlock but just a plain bug,
+//   so it is not hidden behind a setting, and is always enabled.
+
+const Common::Array<const char *> nancy5PatchSrcFiles {
+	"S3503.cif",
+	"S3218.cif"
+};
+
+const Common::Array<PatchAssociation> nancy5PatchAssociations {
+	{ { "softlocks_fix", "true" }, { "S3503" } }
 };
 
 #endif // NANCY5DATA_H

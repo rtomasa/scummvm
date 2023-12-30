@@ -51,6 +51,7 @@ wwwroot.zip            FILE    "dists/networking/wwwroot.zip"
 #endif
 #ifdef USE_FREETYPE2
 fonts.dat              FILE    "dists/engine-data/fonts.dat"
+fonts-cjk.dat          FILE    "dists/engine-data/fonts-cjk.dat"
 #endif
 
 #if PLUGIN_ENABLED_STATIC(ACCESS)
@@ -115,6 +116,7 @@ toon.dat               FILE    "dists/engine-data/toon.dat"
 #endif
 #if PLUGIN_ENABLED_STATIC(ULTIMA)
 ultima.dat             FILE    "dists/engine-data/ultima.dat"
+ultima8.dat            FILE    "dists/engine-data/ultima8.dat"
 #endif
 #if PLUGIN_ENABLED_STATIC(WINTERMUTE)
 wintermute.zip         FILE    "dists/engine-data/wintermute.zip"

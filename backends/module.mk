@@ -67,6 +67,18 @@ MODULE_OBJS += \
 endif
 endif
 
+ifdef USE_SCUMMVMDLC
+ifdef USE_LIBCURL
+MODULE_OBJS += \
+	dlc/scummvmcloud.o
+endif
+endif
+
+ifdef USE_DLC
+MODULE_OBJS += \
+	dlc/dlcmanager.o
+endif
+
 ifdef USE_LIBCURL
 MODULE_OBJS += \
 	networking/curl/connectionmanager.o \
@@ -178,6 +190,7 @@ MODULE_OBJS += \
 	graphics/sdl/sdl-graphics.o \
 	graphics/surfacesdl/surfacesdl-graphics.o \
 	mixer/sdl/sdl-mixer.o \
+	mixer/null/null-mixer.o \
 	mutex/sdl/sdl-mutex.o \
 	timer/sdl/sdl-timer.o
 
@@ -357,8 +370,7 @@ MODULE_OBJS += \
 	graphics/atari/atari_c2p-asm.o \
 	graphics/atari/atari-graphics.o \
 	graphics/atari/atari-graphics-asm.o \
-	mixer/atari/atari-mixer.o \
-	mixer/null/null-mixer.o
+	mixer/atari/atari-mixer.o
 endif
 
 ifeq ($(BACKEND),ds)

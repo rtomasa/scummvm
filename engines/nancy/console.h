@@ -27,6 +27,7 @@
 namespace Nancy {
 
 namespace Action {
+class ActionRecord;
 struct DependencyRecord;
 }
 
@@ -37,20 +38,21 @@ public:
 	NancyConsole();
 	virtual ~NancyConsole(void);
 
-	void postEnter();
+	void postEnter() override;
 
 private:
 	bool Cmd_loadCal(int argc, const char **argv);
-	bool Cmd_cifHexDump(int argc, const char **argv);
 	bool Cmd_cifExport(int argc, const char **argv);
+	bool Cmd_ciftreeExport(int argc, const char **argv);
 	bool Cmd_cifList(int argc, const char **argv);
 	bool Cmd_cifInfo(int argc, const char **argv);
 	bool Cmd_chunkExport(int argc, const char **argv);
 	bool Cmd_chunkHexDump(int argc, const char **argv);
 	bool Cmd_chunkList(int argc, const char **argv);
 	bool Cmd_showImage(int argc, const char **argv);
+	bool Cmd_exportImage(int argc, const char **argv);
 	bool Cmd_playVideo(int argc, const char **argv);
-	bool Cmd_playAudio(int argc, const char **argv);
+	bool Cmd_playSound(int argc, const char **argv);
 	bool Cmd_loadScene(int argc, const char **argv);
 	bool Cmd_sceneID(int argc, const char **argv);
 	bool Cmd_listActionRecords(int argc, const char **argv);
@@ -63,8 +65,11 @@ private:
 	bool Cmd_setPlayerTime(int argc, const char **argv);
 	bool Cmd_getDifficulty(int argc, const char **argv);
 	bool Cmd_setDifficulty(int argc, const char **argv);
+	bool Cmd_soundInfo(int argc, const char **argv);
+	bool Cmd_showHotspots(int argc, const char **argv);
 
-	void recurseDependencies(const Nancy::Action::DependencyRecord &record);
+	void printActionRecord(const Nancy::Action::ActionRecord *record, bool noDependencies = false);
+	void recursePrintDependencies(const Nancy::Action::DependencyRecord &record);
 
 	Common::String _videoFile;
 	Common::String _imageFile;

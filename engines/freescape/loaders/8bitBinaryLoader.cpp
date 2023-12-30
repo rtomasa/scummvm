@@ -157,6 +157,7 @@ Group *FreescapeEngine::load8bitGroupV1(Common::SeekableReadStream *file, byte r
 			} else {
 				debugC(1, kFreescapeDebugParser, "Incomplete group operation %d", opcode);
 				byteSizeOfObject = 0;
+				delete operation;
 				continue;
 			}
 		}
@@ -238,6 +239,7 @@ Group *FreescapeEngine::load8bitGroupV2(Common::SeekableReadStream *file, byte r
 				byteSizeOfObject = byteSizeOfObject - 3;
 			} else {
 				byteSizeOfObject = 0;
+				delete operation;
 				continue;
 			}
 		}
@@ -272,6 +274,10 @@ Object *FreescapeEngine::load8bitObject(Common::SeekableReadStream *file) {
 
 	// object ID
 	uint16 objectID = readField(file, 8);
+
+	if (objectID == 224 && (rawFlagsAndType & 0x1F) == 29) // If objectType is out of range, fix it
+		objectType = (ObjectType)7;
+
 	// size of object on disk; we've accounted for 8 bytes
 	// already so we can subtract that to get the remaining
 	// length beyond here
@@ -281,13 +287,13 @@ Object *FreescapeEngine::load8bitObject(Common::SeekableReadStream *file) {
 		error("Not enough bytes %d to read object %d with type %d", byteSizeOfObject, objectID, objectType);
 	}
 
-	if (objectType > ObjectType::kGroupType && isDemo()) {
+	if (objectType > ObjectType::kGroupType && isDemo() && isCastle()) {
 		// Castle DOS demo has an invalid object, which should not be parsed.
 		debugC(1, kFreescapeDebugParser, "WARNING: invalid object %d!", objectID);
 		readArray(file, byteSizeOfObject - 9);
 		return nullptr;
 	}
-
+	assert(objectType <= ObjectType::kGroupType);
 	assert(byteSizeOfObject >= 9);
 	byteSizeOfObject = byteSizeOfObject - 9;
 	if (objectID == 255 && objectType == ObjectType::kEntranceType) {
@@ -493,104 +499,6 @@ static const char *eclipseRoomName[] = {
 	"ILLUSION",
 	"????????"};
 
-void FreescapeEngine::renderPixels8bitBinImage(Graphics::ManagedSurface *surface, int &i, int &j, uint8 pixels, int color) {
-	if (i >= 320) {
-		//debug("cannot continue, stopping here at row %d!", j);
-		return;
-	}
-
-	int acc = 1 << 7;
-	while (acc > 0) {
-		assert(i < 320);
-		if (acc & pixels) {
-			int previousColor = surface->getPixel(i, j);
-			surface->setPixel(i, j, previousColor + color);
-			assert(previousColor + color < 16);
-		}
-		i++;
-		acc = acc >> 1;
-	}
-
-}
-
-Graphics::ManagedSurface *FreescapeEngine::load8bitBinImage(Common::SeekableReadStream *file, int offset) {
-	Graphics::ManagedSurface *surface = new Graphics::ManagedSurface();
-	surface->create(_screenW, _screenH, Graphics::PixelFormat::createFormatCLUT8());
-	surface->fillRect(Common::Rect(0, 0, 320, 200), 0);
-
-	file->seek(offset);
-	int imageSize = file->readUint16BE();
-
-	int i = 0;
-	int j = 0;
-	int hPixelsWritten = 0;
-	int color = 1;
-	int command = 0;
-	while (file->pos() <= offset + imageSize) {
-		//debug("pos: %lx", file->pos());
-		command = file->readByte();
-
-		color = 1 + hPixelsWritten / 320;
-		//debug("command: %x with j: %d", command, j);
-		if (j >= 200)
-			return surface;
-
-		if (command <= 0x7f) {
-			//debug("starting singles at i: %d j: %d", i, j);
-			int start = i;
-			while (command-- >= 0) {
-				int pixels = file->readByte();
-				//debug("single pixels command: %d with pixels: %x", command, pixels);
-				renderPixels8bitBinImage(surface, i, j, pixels, color);
-			}
-			hPixelsWritten = hPixelsWritten + i - start;
-		} else if (command <= 0xff && command >= 0xf0) {
-			int size = (136 - 8*(command - 0xf0)) / 2;
-			int start = i;
-			int pixels = file->readByte();
-			//debug("starting 0xfX: at i: %d j: %d with pixels: %x", i, j, pixels);
-			while (size > 0) {
-				renderPixels8bitBinImage(surface, i, j, pixels, color);
-				size = size - 4;
-			}
-			hPixelsWritten = hPixelsWritten + i - start;
-			assert(i <= 320);
-		} else if (command <= 0xef && command >= 0xe0) {
-			int size = (264 - 8*(command - 0xe0)) / 2;
-			int start = i;
-			int pixels = file->readByte();
-			//debug("starting 0xeX: at i: %d j: %d with pixels: %x", i, j, pixels);
-			while (size > 0) {
-				renderPixels8bitBinImage(surface, i, j, pixels, color);
-				size = size - 4;
-			}
-			hPixelsWritten = hPixelsWritten + i - start;
-		} else if (command <= 0xdf && command >= 0xd0) {
-			int size = (272 + 8*(0xdf - command)) / 2;
-			int start = i;
-			int pixels = file->readByte();
-			while (size > 0) {
-				renderPixels8bitBinImage(surface, i, j, pixels, color);
-				size = size - 4;
-			}
-			hPixelsWritten = hPixelsWritten + i - start;
-		} else {
-			error("unknown command: %x", command);
-		}
-
-		if (i >= 320) {
-			i = 0;
-			if (hPixelsWritten >= (_renderMode == Common::kRenderCGA ? 640 : 1280)) {
-				j++;
-				hPixelsWritten = 0;
-			}
-		}
-
-
-	}
-	return surface;
-}
-
 Area *FreescapeEngine::load8bitArea(Common::SeekableReadStream *file, uint16 ncolors) {
 
 	Common::String name;
@@ -638,7 +546,7 @@ Area *FreescapeEngine::load8bitArea(Common::SeekableReadStream *file, uint16 nco
 	uint8 gasPocketY = 0;
 	uint8 gasPocketRadius = 0;
 	// Castle specific
-	uint8 extraColor[4];
+	uint8 extraColor[4] = {};
 	if (isEclipse()) {
 		byte idx = file->readByte();
 		name = idx < 8 ? eclipseRoomName[idx] : eclipseRoomName[8];

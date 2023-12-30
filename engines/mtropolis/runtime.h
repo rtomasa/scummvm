@@ -1569,6 +1569,8 @@ public:
 	Palette();
 	explicit Palette(const ColorRGB8 *colors);
 
+	void initDefaultPalette(int version);
+
 	const byte *getPalette() const;
 
 	static const uint kNumColors = 256;
@@ -2522,6 +2524,7 @@ private:
 	Common::Array<LabelTree> _labelTree;
 	Common::Array<LabelSuperGroup> _labelSuperGroups;
 	Data::ProjectFormat _projectFormat;
+	Data::ProjectEngineVersion _projectEngineVersion;
 	bool _isBigEndian;
 
 	Common::Array<AssetDesc *> _assetsByID;

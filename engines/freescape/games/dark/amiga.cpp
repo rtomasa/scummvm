@@ -22,6 +22,7 @@
 #include "common/memstream.h"
 
 #include "freescape/freescape.h"
+#include "freescape/games/dark/dark.h"
 #include "freescape/language/8bitDetokeniser.h"
 
 namespace Freescape {
@@ -75,7 +76,15 @@ void DarkEngine::loadAssetsAmigaFullGame() {
 	_border = loadAndConvertNeoImage(stream, 0x1b762);
 	load8bitBinary(stream, 0x2e96a, 16);
 	loadPalettes(stream, 0x2e638);
+	loadGlobalObjects(stream, 0x30f0 - 50, 24);
 	loadMessagesVariableSize(stream, 0x3d37, 66);
+	_areaMap[255]->changeObjectID(11, 250);
+
+	for (auto &it : _areaMap) {
+		addWalls(it._value);
+		addECDs(it._value);
+		addSkanner(it._value);
+	}
 }
 
 void DarkEngine::drawAmigaAtariSTUI(Graphics::Surface *surface) {

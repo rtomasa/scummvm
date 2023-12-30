@@ -4,6 +4,7 @@ MODULE_OBJS := \
 	big5.o \
 	blit/blit.o \
 	blit/blit-alpha.o \
+	blit/blit-generic.o \
 	blit/blit-scale.o \
 	cursorman.o \
 	font.o \
@@ -29,6 +30,8 @@ MODULE_OBJS := \
 	macgui/macmenu.o \
 	macgui/macpopupmenu.o \
 	macgui/mactext.o \
+	macgui/mactext-canvas.o \
+	macgui/mactext-md.o \
 	macgui/mactextwindow.o \
 	macgui/macwidget.o \
 	macgui/macwindow.o \
@@ -54,7 +57,6 @@ MODULE_OBJS := \
 	svg.o \
 	transform_struct.o \
 	transform_tools.o \
-	transparent_surface.o \
 	thumbnail.o \
 	VectorRenderer.o \
 	VectorRendererSpec.o \
@@ -136,20 +138,20 @@ endif
 
 ifdef ATARI
 MODULE_OBJS += \
-	blit-atari.o
+	blit/blit-atari.o
 endif
 
-ifeq ($(SCUMMVM_NEON),1)
+ifdef SCUMMVM_NEON
 MODULE_OBJS += \
 	blit/blit-neon.o
 $(MODULE)/blit/blit-neon.o: CXXFLAGS += $(NEON_CXXFLAGS)
 endif
-ifeq ($(SCUMMVM_SSE2),1)
+ifdef SCUMMVM_SSE2
 MODULE_OBJS += \
 	blit/blit-sse2.o
 $(MODULE)/blit/blit-sse2.o: CXXFLAGS += -msse2
 endif
-ifeq ($(SCUMMVM_AVX2),1)
+ifdef SCUMMVM_AVX2
 MODULE_OBJS += \
 	blit/blit-avx2.o
 $(MODULE)/blit/blit-avx2.o: CXXFLAGS += -mavx2

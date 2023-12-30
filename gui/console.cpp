@@ -133,6 +133,18 @@ void ConsoleDialog::resetPrompt() {
 	_prompt = PROMPT;
 }
 
+void ConsoleDialog::clearBuffer() {
+	// Reset the line buffer.
+	memset(_buffer, ' ', kBufferSize);
+
+	// Along with a few key vars.
+	_currentPos = 0;
+	_scrollLine = _linesPerPage - 1;
+	_firstLineInBuffer = 0;
+
+	updateScrollBuffer();
+}
+
 void ConsoleDialog::slideUpAndClose() {
 	if (_slideMode == kNoSlideMode) {
 		_slideTime = g_system->getMillis();
@@ -522,6 +534,30 @@ void ConsoleDialog::handleCommand(CommandSender *sender, uint32 cmd, uint32 data
 	}
 }
 
+void ConsoleDialog::handleOtherEvent(const Common::Event &evt) {
+	if (evt.type == Common::EVENT_CUSTOM_ENGINE_ACTION_START) {
+		switch (evt.customType) {
+			case kActionCopy:
+				{
+					Common::String userInput = getUserInput();
+					if (!userInput.empty())
+						g_system->setTextInClipboard(userInput);
+				}
+				break;
+			case kActionPaste:
+				if (g_system->hasTextInClipboard()) {
+					Common::U32String text = g_system->getTextFromClipboard();
+					insertIntoPrompt(text.encode().c_str());
+					scrollToCurrent();
+					drawLine(pos2line(_currentPos));
+				}
+				break;
+			default:
+				break;
+		}
+	}
+}
+
 void ConsoleDialog::specialKeys(Common::KeyCode keycode) {
 	switch (keycode) {
 	case Common::KEYCODE_a:
@@ -545,21 +581,6 @@ void ConsoleDialog::specialKeys(Common::KeyCode keycode) {
 	case Common::KEYCODE_w:
 		killLastWord();
 		g_gui.scheduleTopDialogRedraw();
-		break;
-	case Common::KEYCODE_v:
-		if (g_system->hasTextInClipboard()) {
-			Common::U32String text = g_system->getTextFromClipboard();
-			insertIntoPrompt(text.encode().c_str());
-			scrollToCurrent();
-			drawLine(pos2line(_currentPos));
-		}
-		break;
-	case Common::KEYCODE_c:
-		{
-			Common::String userInput = getUserInput();
-			if (!userInput.empty())
-				g_system->setTextInClipboard(userInput);
-		}
 		break;
 	default:
 		break;
@@ -759,8 +780,7 @@ int ConsoleDialog::vprintFormat(int dummy, const char *format, va_list argptr) {
 	const int size = buf.size();
 
 	print(buf.c_str());
-	buf.trim();
-	debug("%s", buf.c_str());
+	debugN("%s", buf.c_str());
 
 	return size;
 }
@@ -779,8 +799,8 @@ void ConsoleDialog::printCharIntern(int c) {
 	else {
 		buffer(_currentPos) = (char)c;
 		_currentPos++;
-		if ((_scrollLine + 1) * kCharsPerLine == _currentPos) {
-			_scrollLine++;
+		if (_currentPos % kCharsPerLine == _pageWidth) {
+			nextLine();
 			updateScrollBuffer();
 		}
 	}

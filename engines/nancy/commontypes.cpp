@@ -22,8 +22,11 @@
 #include "engines/nancy/commontypes.h"
 #include "engines/nancy/util.h"
 #include "engines/nancy/nancy.h"
-
+#include "engines/nancy/cif.h"
+#include "engines/nancy/resource.h"
 #include "engines/nancy/state/scene.h"
+
+#include "common/memstream.h"
 
 namespace Nancy {
 
@@ -35,18 +38,49 @@ void SceneChangeDescription::readData(Common::SeekableReadStream &stream, bool l
 		paletteID = stream.readByte();
 		stream.skip(2);
 	}
+
 	continueSceneSound = stream.readUint16LE();
 
 	if (g_nancy->getGameType() >= kGameTypeNancy3) {
-		stream.skip(12); // 3D sound listener position
+		int32 x = stream.readSint32LE();
+		int32 y = stream.readSint32LE();
+		int32 z = stream.readSint32LE();
+		listenerFrontVector.set(x, y, z);
+		frontVectorFrameID = frameID;
 	}
 }
 
-void SceneChangeWithFlag::readData(Common::SeekableReadStream &stream, bool longFormat) {
-	_sceneChange.readData(stream, longFormat);
-	stream.skip(2); // shouldStopRendering
-	_flag.label = stream.readSint16LE();
-	_flag.flag = stream.readByte();
+void SceneChangeWithFlag::readData(Common::SeekableReadStream &stream, bool reverseFormat) {
+	_sceneChange.sceneID = stream.readUint16LE();
+	_sceneChange.frameID = stream.readUint16LE();
+	_sceneChange.verticalOffset = stream.readUint16LE();
+	_sceneChange.continueSceneSound = stream.readUint16LE();
+
+	if (reverseFormat) {
+		// NO shouldStopRendering
+		_flag.label = stream.readSint16LE();
+		_flag.flag = stream.readByte();
+
+		if (g_nancy->getGameType() >= kGameTypeNancy3) {
+			int32 x = stream.readSint32LE();
+			int32 y = stream.readSint32LE();
+			int32 z = stream.readSint32LE();
+			_sceneChange.listenerFrontVector.set(x, y, z);
+			_sceneChange.frontVectorFrameID = _sceneChange.frameID;
+		}
+	} else {
+		if (g_nancy->getGameType() >= kGameTypeNancy3) {
+			int32 x = stream.readSint32LE();
+			int32 y = stream.readSint32LE();
+			int32 z = stream.readSint32LE();
+			_sceneChange.listenerFrontVector.set(x, y, z);
+			_sceneChange.frontVectorFrameID = _sceneChange.frameID;
+		}
+
+		stream.skip(2); // shouldStopRendering
+		_flag.label = stream.readSint16LE();
+		_flag.flag = stream.readByte();
+	}
 }
 
 void SceneChangeWithFlag::execute() {
@@ -59,16 +93,16 @@ void HotspotDescription::readData(Common::SeekableReadStream &stream) {
 	readRect(stream, coords);
 }
 
-void BitmapDescription::readData(Common::SeekableReadStream &stream, bool frameIsLong) {
-	if (!frameIsLong) {
-		frameID = stream.readUint16LE();
-	} else {
-		frameID = stream.readUint32LE();
+void FrameBlitDescription::readData(Common::SeekableReadStream &stream, bool longFormat) {
+	frameID = stream.readUint16LE();
+	
+	if (longFormat) {
+		// In static mode Overlays, this is the id of the _srcRect to be used
+		staticRectID = stream.readUint16LE();
 	}
 
-	if (g_nancy->getGameType() >= kGameTypeNancy3) {
-		// Most likely transparency
-		stream.skip(2);
+	if (g_nancy->getGameType() >= kGameTypeNancy3 && longFormat) {
+		hasHotspot = stream.readUint16LE();
 	}
 
 	readRect(stream, src);
@@ -93,6 +127,40 @@ void SecondaryVideoDescription::readData(Common::SeekableReadStream &stream) {
 	readRect(stream, srcRect);
 	readRect(stream, destRect);
 	stream.skip(0x20);
+}
+
+void SoundEffectDescription::readData(Common::SeekableReadStream &stream) {
+	minTimeDelay = stream.readUint32LE();
+	maxTimeDelay = stream.readUint32LE();
+
+	randomMoveMinX = stream.readSint32LE();
+	randomMoveMaxX = stream.readSint32LE();
+	randomMoveMinY = stream.readSint32LE();
+	randomMoveMaxY = stream.readSint32LE();
+	randomMoveMinZ = stream.readSint32LE();
+	randomMoveMaxZ = stream.readSint32LE();
+
+	fixedPosX = stream.readSint32LE();
+	fixedPosY = stream.readSint32LE();
+	fixedPosZ = stream.readSint32LE();
+
+	moveStepTime = stream.readUint32LE();
+	numMoveSteps = stream.readSint32LE();
+
+	linearMoveStartX = stream.readSint32LE();
+	linearMoveEndX = stream.readSint32LE();
+	linearMoveStartY = stream.readSint32LE();
+	linearMoveEndY = stream.readSint32LE();
+	linearMoveStartZ = stream.readSint32LE();
+	linearMoveEndX = stream.readSint32LE();
+
+	rotateMoveStartX = stream.readSint32LE();
+	rotateMoveStartY = stream.readSint32LE();
+	rotateMoveStartZ = stream.readSint32LE();
+	rotateMoveAxis = stream.readByte();
+
+	minDistance = stream.readUint32LE();
+	maxDistance = stream.readUint32LE();
 }
 
 void SoundDescription::readNormal(Common::SeekableReadStream &stream) {
@@ -140,8 +208,6 @@ void SoundDescription::readDIGI(Common::SeekableReadStream &stream) {
 
 	s.syncAsUint16LE(panAnchorFrame, kGameTypeVampire, kGameTypeNancy2);
 	s.skip(2, kGameTypeVampire, kGameTypeNancy2);
-
-	s.skip(0x61, kGameTypeNancy3);
 }
 
 void SoundDescription::readMenu(Common::SeekableReadStream &stream) {
@@ -190,6 +256,14 @@ void SoundDescription::readScene(Common::SeekableReadStream &stream) {
 	s.skip(2, kGameTypeVampire, kGameTypeNancy2);
 	s.skip(4, kGameTypeVampire, kGameTypeNancy2); // Panning, always? at center
 	s.syncAsUint32LE(samplesPerSec, kGameTypeVampire, kGameTypeNancy2);
+}
+
+void SoundDescription::readTerse(Common::SeekableReadStream &stream) {
+	readFilename(stream, name);
+	channelID = stream.readUint16LE();
+	numLoops = stream.readUint32LE();
+	volume = stream.readUint16LE();
+	stream.skip(2);
 }
 
 void ConditionalDialogue::readData(Common::SeekableReadStream &stream) {
@@ -279,6 +353,12 @@ void StaticData::readData(Common::SeekableReadStream &stream, Common::Language l
 	uint16 num = 0;
 	int languageID = -1;
 
+	// Used for patch file reading
+	byte *patchBuf = nullptr;
+	uint32 patchBufSize = 0;
+	Common::Array<Common::Array<Common::String>> confManProps;
+	Common::Array<Common::Array<Common::String>> fileIDs;
+
 	while (stream.pos() < endPos) {
 		uint32 nextSectionOffset = stream.readUint32LE();
 
@@ -352,6 +432,19 @@ void StaticData::readData(Common::SeekableReadStream &stream, Common::Language l
 			}
 
 			break;
+		case MKTAG('C', 'D', 'L', '2') :
+			// Conditional dialogue, no strings (nancy6 and up)
+			num = stream.readUint16LE();
+			conditionalDialogue.resize(num);
+			for (uint16 i = 0; i < num; ++i) {
+				uint16 num2 = stream.readUint16LE();
+				conditionalDialogue[i].resize(num2);
+				for (uint j = 0; j < num2; ++j) {
+					conditionalDialogue[i][j].readData(stream);
+				}
+			}
+
+			break;
 		case MKTAG('G', 'D', 'B', 'Y') :
 			// Goodbyes
 			num = stream.readUint16LE();
@@ -372,6 +465,15 @@ void StaticData::readData(Common::SeekableReadStream &stream, Common::Language l
 				}
 
 				stream.seek(endOffset);
+			}
+
+			break;
+		case MKTAG('G', 'D', 'B', '2') :
+			// Goodbyes, no strings (nancy6 and up)
+			num = stream.readUint16LE();
+			goodbyes.resize(num);
+			for (uint16 i = 0; i < num; ++i) {
+				goodbyes[i].readData(stream);
 			}
 
 			break;
@@ -419,6 +521,17 @@ void StaticData::readData(Common::SeekableReadStream &stream, Common::Language l
 			}
 
 			break;
+		case MKTAG('E', 'S', 'A', 'V') :
+			num = stream.readUint16LE();
+			for (int i = 0; i < num; ++i) {
+				if (i == languageID) {
+					emptySaveText = stream.readString();
+				} else {
+					stream.readString();
+				}
+			}
+
+			break;
 		case MKTAG('E', 'F', 'L', 'G') :
 			// Event flag names
 			num = stream.readUint16LE();
@@ -428,32 +541,57 @@ void StaticData::readData(Common::SeekableReadStream &stream, Common::Language l
 			}
 
 			break;
+		case MKTAG('P', 'A', 'T', 'C') :
+			// Patch file
+			patchBufSize = nextSectionOffset - stream.pos();
+			patchBuf = new byte[patchBufSize];
+			stream.read(patchBuf, patchBufSize);
+			break;
+		case MKTAG('P', 'A', 'S', 'S') :
+			// Patch file <-> ConfMan entries associations
+			num = stream.readUint16LE();
+			confManProps.resize(num);
+			fileIDs.resize(num);
+			for (uint i = 0; i < num; ++i) {
+				// Read ConfMan key-value pairs
+				uint16 num2 = stream.readUint16LE();
+				confManProps[i].resize(num2);
+				for (uint j = 0; j < num2; ++j) {
+					confManProps[i][j] = stream.readString();
+				}
+
+				// Read filenames
+				num2 = stream.readUint16LE();
+				fileIDs[i].resize(num2);
+				for (uint j = 0; j < num2; ++j) {
+					fileIDs[i][j] = stream.readString();
+				}
+			}
+
+			break;
 		default:
 			stream.seek(nextSectionOffset);
 		}
 	}
-	
 
-	
+	if (patchBuf) {
+		// Load the patch tree into the ResourceManager
+		Common::MemoryReadStream *patchStream = new Common::MemoryReadStream(patchBuf, patchBufSize, DisposeAfterUse::YES);
+		PatchTree *tree = g_nancy->_resource->readPatchTree(patchStream, "patchtree", 2);
+		assert(tree);
 
-	// Read the strings logic
-	
+		// Write the ConfMan associations
+		for (uint i = 0; i < confManProps.size(); ++i) {
+			assert(confManProps[i].size() % 2 == 0);
+			// Separate the array of strings into an array of Pairs of strings
+			Common::Array<Common::Pair<Common::String, Common::String>> props;
+			for (uint j = 0; j < confManProps[i].size() / 2; ++j) {
+				props.push_back({confManProps[i][j * 2], confManProps[i][j * 2 + 1]});
+			}
 
-	
-
-	
-
-	// Read the in-game strings, making sure to pick the correct language
-
-
-	
-
-	
-
-	
-
-	// Read debug strings
-	
+			tree->_associations.push_back({props, fileIDs[i]});
+		}
+	}
 }
 
 } // End of namespace Nancy
