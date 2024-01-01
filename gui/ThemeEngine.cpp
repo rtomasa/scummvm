@@ -815,7 +815,11 @@ bool ThemeEngine::loadDefaultXML() {
 	// Use the Python script "makedeftheme.py" to convert a normal XML theme
 	// into the "default.inc" file, which is ready to be included in the code.
 #ifndef DISABLE_GUI_BUILTIN_THEME
+#if defined(REPLAY_OS)
+#include "themes/replayos.inc"
+#else
 #include "themes/default.inc"
+#endif
 	int xmllen = 0;
 
 	for (int i = 0; i < ARRAYSIZE(defaultXML); i++)
@@ -832,8 +836,11 @@ bool ThemeEngine::loadDefaultXML() {
 
 		return false;
 	}
-
+#if defined(REPLAY_OS)
+	_themeName = "RePlay OS Theme (Builtin Version)";
+#else
 	_themeName = "ScummVM Classic Theme (Builtin Version)";
+#endif
 	_themeId = "builtin";
 	_themeFile.clear();
 

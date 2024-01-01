@@ -38,6 +38,11 @@ CP       := cp
 
 LDFLAGS :=
 
+# RePlay OS
+ifeq ($(platform), replay_os)
+   DEFINES += -DREPLAY_OS
+endif
+
 # Raspberry Pi 3 (64 bit)
 ifeq ($(platform), rpi3_64)
    TARGET   = $(TARGET_NAME)_libretro.so
