@@ -1595,6 +1595,10 @@
 						width = '120'
 						height = '12'
 				/>
+				<widget name = 'GlobalOptions'
+						width = '120'
+						height = '12'
+				/>
 			<layout type = 'horizontal' padding = '4, 4, 4, 4' align = 'center' spacing='2'>
 				<widget name = 'Help'
 						width = '60'
