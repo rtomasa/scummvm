@@ -11,7 +11,7 @@ DEPS_COMMIT_libretro-deps   := bab7d258c451c0e7cba4b6a79f1b062c13efff38
 
 DEPS_FOLDER_libretro-common := libretro-common
 DEPS_URL_libretro-common    := https://github.com/libretro/libretro-common
-DEPS_COMMIT_libretro-common := 879c8d507b0b52e77e27d759239c2b5df1e26dfd
+DEPS_COMMIT_libretro-common := 52781c4a8b5aae19d858f4a2326c8f8308c70f54
 
 submodule_test  = $(if $(shell result=$$($(SCRIPTS_PATH)/configure_submodules.sh $(DEPS_URL_$(1)) $(DEPS_COMMIT_$(1)) $(DEPS_PATH) $(DEBUG_ALLOW_DIRTY_SUBMODULES) $(DEPS_FOLDER_$(1))) ; { [ -z $$result ] || [ ! $$result = 0 ] ; } && printf error),$(1))
 $(info Configuring submodules...)
@@ -42,6 +42,7 @@ OBJS_DEPS += $(DEPS_PATH)/$(DEPS_FOLDER_libretro-common)/file/file_path_io.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-common)/file/retro_dirent.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-common)/vfs/vfs_implementation.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-common)/string/stdstring.o \
+	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-common)/string/rstrtod.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-common)/time/rtime.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-common)/streams/file_stream.o \
 	$(DEPS_PATH)/$(DEPS_FOLDER_libretro-common)/features/features_cpu.o
