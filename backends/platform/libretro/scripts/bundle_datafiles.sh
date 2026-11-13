@@ -57,7 +57,7 @@ fi
 
 [ -z $4 ] && INFO_FILE_PRE=scummvm || INFO_FILE_PRE=$4
 [ -z $5 ] && NICE_NAME=ScummVM || NICE_NAME=$5
-[ -z $6 ] && ALLOWED_EXT=scummvm || ALLOWED_EXT=$6
+[ -z "$6" ] && ALLOWED_EXT="scummvm|svm" || ALLOWED_EXT=$6
 [ -z $7 ] && BUNDLE_DIR=scummvm || BUNDLE_DIR="$7"
 [ -z $8 ] && BUNDLE_DATAFILES_DIR="${BUNDLE_DIR}/extra" || BUNDLE_DATAFILES_DIR="${BUNDLE_DIR}/$8"
 [ -z $9 ] && BUNDLE_THEME_DIR="${BUNDLE_DIR}/theme" || BUNDLE_THEME_DIR="${BUNDLE_DIR}/$9"

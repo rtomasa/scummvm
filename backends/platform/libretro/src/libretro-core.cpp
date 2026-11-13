@@ -926,7 +926,7 @@ void retro_get_system_info(struct retro_system_info *info) {
 #define __GIT_VERSION ""
 #endif
 	info->library_version = __GIT_VERSION;
-	info->valid_extensions = "scummvm";
+	info->valid_extensions = "scummvm|svm";
 	info->need_fullpath = true;
 	info->block_extract = false;
 }
@@ -1220,11 +1220,10 @@ bool retro_load_game(const struct retro_game_info *game) {
 		char buffer[400] = {0};
 		int test_game_status = TEST_GAME_KO_NOT_FOUND;
 
-		const char *target_file_ext = ".scummvm";
-		int target_file_ext_pos = strlen(game->path) - strlen(target_file_ext);
+		Common::String content_path = game->path;
 
-		// See if we are loading a .scummvm file.
-		if (!(target_file_ext_pos < 0) && strstr(game->path + target_file_ext_pos, target_file_ext) != NULL) {
+		// See if we are loading a hook file.
+		if (content_path.hasSuffix(".scummvm") || content_path.hasSuffix(".svm")) {
 			// Open the file.
 			RFILE *gamefile = filestream_open(game->path, RETRO_VFS_FILE_ACCESS_READ, RETRO_VFS_FILE_ACCESS_HINT_NONE);
 			if (!gamefile) {
@@ -1233,7 +1232,8 @@ bool retro_load_game(const struct retro_game_info *game) {
 			}
 
 			// Load the file data.
-			if (filestream_gets(gamefile, target_id, sizeof(target_id)) == NULL) {
+			if (filestream_gets(gamefile, target_id, sizeof(target_id)) == NULL &&
+			    (filestream_error(gamefile) || !filestream_eof(gamefile))) {
 				filestream_close(gamefile);
 				retro_log_cb(RETRO_LOG_ERROR, "[scummvm] Failed to load contents of game file '%s'.\n", game->path);
 				return false;
@@ -1243,12 +1243,9 @@ bool retro_load_game(const struct retro_game_info *game) {
 			Common::String tmp = target_id;
 			tmp.trim();
 			strcpy(target_id, tmp.c_str());
+		}
 
-			if (strlen(target_id) == 0) {
-				retro_log_cb(RETRO_LOG_ERROR, "[scummvm] Game file '%s' does not contain any target id.\n", game->path);
-				return false;
-			}
-
+		if (target_id[0]) {
 			test_game_status = LIBRETRO_G_SYSTEM->testGame(target_id, false);
 		} else {
 			if (detect_target.isDirectory()) {

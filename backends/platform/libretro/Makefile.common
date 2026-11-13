@@ -228,6 +228,8 @@ endif
 # Nice name shown in frontend
 CORE_NAME = "ScummVM"
 # Pipe separated allowed file extensions that core can handle
+CORE_SUPPORTED_EXTENSIONS = "scummvm|svm"
+# Extension used for generated playlist hooks
 CORE_EXTENSIONS = "scummvm"
 # Subdirs for datafiles bundle
 SCUMMVM_SYSTEM_SUBDIR  := scummvm
@@ -383,8 +385,8 @@ ifeq (, $(shell which zip))
 endif
 	@$(SCRIPTS_PATH)/bundle_datafiles.sh $(ROOT_PATH) $(SCUMMVM_PATH) bundle $(TARGET_NAME)
 
-$(TARGET_NAME)_libretro.info: $(SCUMMVM_PATH)/dists/scummvm.rc
+$(TARGET_NAME)_libretro.info: $(SCUMMVM_PATH)/dists/scummvm.rc $(ROOT_PATH)/Makefile.common $(SCRIPTS_PATH)/bundle_datafiles.sh
 	@echo Preparing $@
-	@$(SCRIPTS_PATH)/bundle_datafiles.sh $(ROOT_PATH) $(SCUMMVM_PATH) info $(TARGET_NAME) $(CORE_NAME) $(CORE_EXTENSIONS) $(SCUMMVM_SYSTEM_SUBDIR) $(SCUMMVM_EXTRA_SUBDIR) $(SCUMMVM_THEME_SUBDIR)
+	@$(SCRIPTS_PATH)/bundle_datafiles.sh $(ROOT_PATH) $(SCUMMVM_PATH) info $(TARGET_NAME) $(CORE_NAME) $(CORE_SUPPORTED_EXTENSIONS) $(SCUMMVM_SYSTEM_SUBDIR) $(SCUMMVM_EXTRA_SUBDIR) $(SCUMMVM_THEME_SUBDIR)
 
 .PHONY: all core datafiles coreinfo

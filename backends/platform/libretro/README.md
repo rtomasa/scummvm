@@ -170,11 +170,13 @@ Playlists used in Libretro frontends (e.g. Retroarch) are plain text lists used 
 
 ScummVM core can accept as content the playlist-provided path to any of the files inside a valid game folder, the ScummVM internal detection system will try to autodetect the game from the content file parent folder and run the game with default ScummVM options.
 
-The core also supports dedicated per game **hook** plain text files with `.scummvm` extension, which can be used as target path in the playlist. Content of this file shall be a string corresponding to one of the following ScummVM identifiers:
+The core also supports dedicated per game **hook** plain text files with `.scummvm` or `.svm` extension, which behave identically and can be used as target paths in the playlist. An empty file or a whitespace-only first line triggers game detection in the hook file's parent folder. Otherwise, the first line specifies one of the following ScummVM identifiers:
 
   - **target**: this is the game identifier of each entry in the internal Launcher list, hence corresponding to entries in ScummVM configuration file (e.g. 'scummvm.ini'). In this case the game must be added from ScummVM GUI first, and the hook files can be placed anywhere, as the path for the game files is already part of the target configuration. The game will be launched with the options set in ScummVM
 
   - **game ID**: this is a unique identifier for any game supported by ScummVM. This identifier is hard coded in each engine source and can be subject to change, hence it is **not a recommended choice**. A list of current game IDs is available [here](https://scummvm.org/compatibility). In this case the game will be launched even if not added in ScummVM Launcher, the hook file must be placed in the game folder and the game will be launched with default ScummVM options
+
+Game IDs can be specified on their own (for example `monkey`) or qualified with an engine ID (`scumm:monkey`) to resolve ambiguity. A matching target in `scummvm.ini` takes precedence over a game ID.
 
 ### Creating ScummVM core playlist
 The recommended way to generate a ScummVM core playlist is from within the ScummVM Launcher (i.e. the interal core GUI) with the Playlist Generator tool. Both needed hook files and the playlist are created automatically, based on ScummVM Launcher games list.

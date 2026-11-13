@@ -289,7 +289,7 @@ static const char *const helpTabs[] = {
 	    "\n"
 	    "ScummVM core can accept as content the playlist-provided path to any of the files inside a valid game folder, the detection system will try to autodetect the game from the content file parent folder and run the game with default ScummVM options.\n"
 	    "\n"
-	    "The core also supports dedicated per game **hook** plain text files with **." CORE_EXTENSIONS "** extension, which can be used as target in the playlist to specify one of the following ScummVM identifiers:\n"
+	    "The core also supports dedicated per game **hook** plain text files with **.scummvm** or **.svm** extension, which behave identically. Empty files or whitespace-only first lines trigger game detection in the hook file's parent folder. Otherwise, the first line specifies one of the following ScummVM identifiers:\n"
 	    "\n"
 	    "  - **target**: this is the game identifier of each entry in the internal Launcher list, hence corresponding to entries in ScummVM configuration file (e.g. 'scummvm.ini'). In this case the game must be added from ScummVM GUI first, and the hook files can be placed anywhere, as the path for the game files is already part of the target configuration. The game will be launched with the options set in ScummVM\n"
 	    "\n"
