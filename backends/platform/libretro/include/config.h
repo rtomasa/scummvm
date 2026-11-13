@@ -22,6 +22,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "config.h.engines"
+
 #if defined(WIIU) || defined(__CELLOS_LV2__) || defined(GEKKO)
 #undef  SCUMM_LITTLE_ENDIAN
 #define SCUMM_BIG_ENDIAN

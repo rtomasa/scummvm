@@ -91,6 +91,9 @@ public:
 	int16 getScreenWidth(void);
 	int16 getScreenHeight(void);
 	bool inLauncher(void);
+#ifdef LRHARD
+	float getDisplayAspectRatio();
+#endif
 
 #ifdef USE_OPENGL
 	void resetGraphicsContext(void);

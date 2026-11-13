@@ -58,9 +58,13 @@
 #include "backends/platform/libretro/include/libretro-gl-context-handoff.h"
 #include "backends/platform/libretro/include/libretro-threads.h"
 #include "backends/platform/libretro/include/libretro-core-options.h"
+#include "backends/platform/libretro/include/libretro-global-options.h"
 #include "backends/platform/libretro/include/libretro-os.h"
 #include "backends/platform/libretro/include/libretro-fs.h"
 #include "backends/platform/libretro/include/libretro-mapper.h"
+#if defined(LRHARD) && defined(USE_OPENGL)
+#include "backends/platform/libretro/include/libretro-timer.h"
+#endif
 
 static struct retro_game_info game_buf;
 static struct retro_game_info *game_buf_ptr;
@@ -106,6 +110,12 @@ static unsigned max_height = RES_INIT_MAX_H;
 static uint16 av_status = AUDIO_STATUS_MUTE;
 
 static float frame_rate = 0;
+#ifdef LRHARD
+static float display_aspect_ratio = 0;
+#ifdef USE_OPENGL
+static bool hw_geometry_barrier = false;
+#endif
+#endif
 static uint16 sample_rate = 0;
 static float audio_samples_per_frame   = 0.0f; // length in samples per frame
 static float audio_samples_accumulator = 0.0f;
@@ -329,6 +339,7 @@ void retro_osd_notification(const char *msg, enum retro_log_level level) {
 static void update_variables(void) {
 	struct retro_variable var;
 	updating_variables = true;
+	retro_global_options_update(environ_cb);
 
 	var.key = "scummvm_pointer_device";
 	var.value = NULL;
@@ -384,9 +395,13 @@ static void update_variables(void) {
 		mouse_fine_control_speed_reduction = (int)atoi(var.value);
 	}
 
+	float old_frame_rate = frame_rate;
+#ifdef LRHARD
+	frame_rate = DEFAULT_REFRESH_RATE;
+	environ_cb(RETRO_ENVIRONMENT_GET_TARGET_REFRESH_RATE, &frame_rate);
+#else
 	var.key = "scummvm_framerate";
 	var.value = NULL;
-	float old_frame_rate = frame_rate;
 	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
 		if (strcmp(var.value, "disabled") == 0)
 			frame_rate = environ_cb(RETRO_ENVIRONMENT_GET_TARGET_REFRESH_RATE, &frame_rate) ? frame_rate : DEFAULT_REFRESH_RATE;
@@ -397,22 +412,29 @@ static void update_variables(void) {
 		}
 	} else
 		frame_rate = DEFAULT_REFRESH_RATE;
+#endif
 
+	uint16 old_sample_rate = sample_rate;
+#ifdef LRHARD
+	sample_rate = DEFAULT_SAMPLE_RATE;
+#else
 	var.key = "scummvm_samplerate";
 	var.value = NULL;
-	uint16 old_sample_rate = sample_rate;
 	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
 		char sample_rate_var[6] = {0};
 		strncpy(sample_rate_var, var.value, 5);
 		sample_rate = atoi(sample_rate_var);
 	} else
 		sample_rate = DEFAULT_SAMPLE_RATE;
+#endif
 
+#ifndef LRHARD
 	var.key = "scummvm_browsing_mode";
 	var.value = NULL;
 	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
 		browsing_mode_authorized = (strcmp(var.value, "authorized") == 0);
 	else
+#endif
 #ifdef ANDROID
 		browsing_mode_authorized = true;
 #else
@@ -875,7 +897,11 @@ void retro_set_input_state(retro_input_state_t cb) {
 void retro_set_environment(retro_environment_t cb) {
 	environ_cb = cb;
 
+#ifdef LRHARD
+	bool tmp = false;
+#else
 	bool tmp = true;
+#endif
 	bool has_categories;
 	environ_cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &tmp);
 	libretro_fill_options_mapper_data(environ_cb);
@@ -925,6 +951,10 @@ void retro_get_system_av_info(struct retro_system_av_info *info) {
 	info->geometry.max_width = max_width;
 	info->geometry.max_height = max_height;
 	info->geometry.aspect_ratio = (float)base_width / (float)base_height;
+#ifdef LRHARD
+	if (display_aspect_ratio > 0)
+		info->geometry.aspect_ratio = display_aspect_ratio;
+#endif
 	info->timing.fps = frame_rate;
 	info->timing.sample_rate = sample_rate;
 }
@@ -1141,12 +1171,26 @@ void retro_set_controller_port_device(unsigned port, unsigned device) {
 	}
 }
 
+bool retro_has_content(void) {
+	return game_buf_ptr != nullptr;
+}
+
 bool retro_load_game(const struct retro_game_info *game) {
 	if (!g_system) {
 		if (retro_log_cb)
 			retro_log_cb(RETRO_LOG_ERROR, "[scummvm] Failed to initialize ScummVM.\n");
 		return false;
 	}
+#ifdef LRHARD
+	if (!game) {
+		if (retro_log_cb)
+			retro_log_cb(RETRO_LOG_ERROR, "[scummvm] Content is required.\n");
+		retro_osd_notification("No game provided", RETRO_LOG_ERROR);
+		return false;
+	}
+#endif
+	// Frontends may load per-content overrides after retro_init().
+	update_variables();
 
 #ifdef LIBRETRO_DEBUG
 	char debug_buf[] = "--debuglevel=11";
@@ -1154,6 +1198,12 @@ bool retro_load_game(const struct retro_game_info *game) {
 #endif
 
 	if (game) {
+#ifdef LRHARD
+		if (!game->path || !*game->path) {
+			retro_osd_notification("No game path provided", RETRO_LOG_ERROR);
+			return false;
+		}
+#endif
 		game_buf_ptr = &game_buf;
 		memcpy(game_buf_ptr, game, sizeof(retro_game_info));
 		if (game->path) {
@@ -1231,11 +1281,18 @@ bool retro_load_game(const struct retro_game_info *game) {
 		case TEST_GAME_KO_MULTIPLE_RESULTS:
 			retro_log_cb(RETRO_LOG_WARN, "[scummvm] Multiple targets found for '%s' in scummvm.ini\n", target_id);
 			retro_osd_notification("Multiple targets found", RETRO_LOG_WARN);
+#ifdef LRHARD
+			return false;
+#else
 			break;
+#endif
 		case TEST_GAME_KO_NOT_FOUND:
 		default:
 			retro_log_cb(RETRO_LOG_WARN, "[scummvm] Game not found. Check path and content of '%s'\n", game->path);
 			retro_osd_notification("Game not found", RETRO_LOG_ERROR);
+#ifdef LRHARD
+			return false;
+#endif
 		}
 
 		parse_command_params(buffer);
@@ -1255,6 +1312,19 @@ bool retro_load_game_special(unsigned game_type, const struct retro_game_info *i
 	return false;
 }
 
+#if defined(LRHARD) && defined(USE_OPENGL)
+bool retro_sync_hw_geometry() {
+	if (!(av_status & (AV_STATUS_UPDATE_AV_INFO | AV_STATUS_UPDATE_GEOMETRY)) &&
+	    display_aspect_ratio == LIBRETRO_G_SYSTEM->getDisplayAspectRatio())
+		return false;
+
+	// Geometry callbacks may clear or replace the frontend's FBO. Run them before drawing.
+	hw_geometry_barrier = true;
+	dynamic_cast<LibretroTimerManager *>(LIBRETRO_G_SYSTEM->getTimerManager())->switchThread(THREAD_SWITCH_UPDATE);
+	return true;
+}
+#endif
+
 void retro_run(void) {
 	/* Settings change is covered by RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK
 	except in case of core options reset to defaults, for which the following call is needed*/
@@ -1272,17 +1342,6 @@ void retro_run(void) {
 		av_status &= ~AV_STATUS_UPDATE_GUI;
 	}
 #endif
-
-	if (av_status & (AV_STATUS_UPDATE_AV_INFO | AV_STATUS_UPDATE_GEOMETRY)) {
-		struct retro_system_av_info info;
-		retro_get_system_av_info(&info);
-		if (av_status & AV_STATUS_UPDATE_AV_INFO)
-			environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &info);
-		else
-			environ_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &info);
-
-		av_status &= ~(AV_STATUS_UPDATE_AV_INFO | AV_STATUS_UPDATE_GEOMETRY);
-	}
 
 	if (av_status & AUDIO_STATUS_UPDATE_LATENCY) {
 		uint32 audio_latency;
@@ -1303,12 +1362,41 @@ void retro_run(void) {
 		audio_video_enable = RETRO_AV_ENABLE_VIDEO | RETRO_AV_ENABLE_AUDIO;
 
 	if (g_system) {
-		/* Switch to ScummVM thread */
-		retro_switch_to_emu_thread();
+		for (;;) {
+			/* Switch to ScummVM thread */
+			retro_switch_to_emu_thread();
 
-		if (retro_emu_thread_exited()) {
-			exit_to_frontend();
-			return;
+			if (retro_emu_thread_exited()) {
+				log_scummvm_exit_code();
+				exit_to_frontend();
+				return;
+			}
+
+#ifdef LRHARD
+			const float aspectRatio = LIBRETRO_G_SYSTEM->getDisplayAspectRatio();
+			if (display_aspect_ratio != aspectRatio) {
+				display_aspect_ratio = aspectRatio;
+				av_status |= AV_STATUS_UPDATE_GEOMETRY;
+			}
+#endif
+			// Notify the frontend before presenting the frame with the new geometry.
+			if (av_status & (AV_STATUS_UPDATE_AV_INFO | AV_STATUS_UPDATE_GEOMETRY)) {
+				struct retro_system_av_info info;
+				retro_get_system_av_info(&info);
+				if (av_status & AV_STATUS_UPDATE_AV_INFO)
+					environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &info);
+				else
+					environ_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &info.geometry);
+
+				av_status &= ~(AV_STATUS_UPDATE_AV_INFO | AV_STATUS_UPDATE_GEOMETRY);
+			}
+#if defined(LRHARD) && defined(USE_OPENGL)
+			if (hw_geometry_barrier) {
+				hw_geometry_barrier = false;
+				continue;
+			}
+#endif
+			break;
 		}
 
 		/* Retrieve audio */
@@ -1335,10 +1423,22 @@ void retro_run(void) {
 
 void retro_unload_game(void) {
 	close_emu_thread();
+#ifdef LRHARD
+	display_aspect_ratio = 0;
+#ifdef USE_OPENGL
+	hw_geometry_barrier = false;
+#endif
+#endif
 }
 
 void retro_reset(void) {
 	close_emu_thread();
+#ifdef LRHARD
+	display_aspect_ratio = 0;
+#ifdef USE_OPENGL
+	hw_geometry_barrier = false;
+#endif
+#endif
 	init_command_params();
 	refresh_authorized_locations();
 	if (!retro_load_game(game_buf_ptr) && retro_log_cb)

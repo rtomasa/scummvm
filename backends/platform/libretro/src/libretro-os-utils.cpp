@@ -29,6 +29,7 @@
 #include "backends/platform/libretro/include/libretro-defs.h"
 #include "backends/platform/libretro/include/libretro-core.h"
 #include "backends/platform/libretro/include/libretro-os.h"
+#include "backends/platform/libretro/include/libretro-global-options.h"
 #include "backends/platform/libretro/include/libretro-options-widget.h"
 #include "backends/platform/libretro/include/libretro-fs.h"
 
@@ -177,11 +178,14 @@ int OSystem_libretro::testGame(const char *filedata, bool autodetect) {
 }
 
 GUI::OptionsContainerWidget *OSystem_libretro::buildBackendOptionsWidget(GUI::GuiObject *boss, const Common::String &name, const Common::String &target) const {
+#ifdef LRHARD
+	return nullptr;
+#else
 	if (target.equalsIgnoreCase(Common::ConfigManager::kApplicationDomain))
 		return new LibretroOptionsWidget(boss, name, target);
 	else
 		return nullptr;
-
+#endif
 }
 
 bool OSystem_libretro::checkPathSetting(const char *setting, Common::String const &defaultPath, bool isDirectory) {
@@ -238,8 +242,10 @@ void OSystem_libretro::applyBackendSettings() {
 		ConfMan.setAndFlush("savepath", s_systemDir);
 		retro_osd_notification("ScummVM save folder not found.", RETRO_LOG_WARN);
 	}
+#ifndef LRHARD
 	if (!checkPathSetting("themepath", s_themeDir))
 		retro_osd_notification("ScummVM theme folder not found.", RETRO_LOG_WARN);
+#endif
 	if (!checkPathSetting("extrapath", s_extraDir))
 		retro_osd_notification("ScummVM extra folder not found. Some engines/features (e.g. Virtual Keyboard) will not work without relevant datafiles.", RETRO_LOG_WARN);
 	checkPathSetting("soundfont", s_soundfontPath, false);
@@ -257,6 +263,21 @@ void OSystem_libretro::applyBackendSettings() {
 	}
 	checkPathSetting("libretro_playlist_path", s_playlistDir.empty() ? s_systemDir : s_playlistDir);
 	checkPathSetting("iconspath", "");
+
+#ifdef LRHARD
+	Common::Path configPath = ConfMan.getCustomConfigFileName();
+	if (configPath.empty())
+		configPath = getDefaultConfigFileName();
+	Common::String paths = Common::String::format("[ScummVM paths] target: %s\n[ScummVM paths] config: %s\n",
+		ConfMan.getActiveDomainName().empty() ? "<launcher>" : ConfMan.getActiveDomainName().c_str(),
+		configPath.toString(Common::Path::kNativeSeparator).c_str());
+	const char *const settings[] = {"path", "savepath", "themepath", "extrapath", "soundfont", "iconspath", "browser_lastpath", "libretro_playlist_path"};
+	for (const char *setting : settings) {
+		const Common::String path = ConfMan.getPath(setting).toString(Common::Path::kNativeSeparator);
+		paths += Common::String::format("[ScummVM paths] %s: %s\n", setting, path.empty() ? "<not configured>" : path.c_str());
+	}
+	retro_global_options_log_paths(paths.c_str());
+#endif
 }
 
 static const char *const helpTabs[] = {

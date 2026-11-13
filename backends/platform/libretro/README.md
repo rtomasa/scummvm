@@ -31,7 +31,139 @@ Extract `scummvm.zip` and select relevant paths in ScummVM GUI (or modify `scumm
 
 Note that both datafiles and themes included in `scummvm.zip` need to be consistent with ScummVM version in use, hence need to be generally rebuilt and replaced for each new version.
 
+## Native frontend integration (`LRHARD=1`)
+
+`LRHARD` builds keep ScummVM's native Save, Load and game-specific Options
+dialogs, and hide Help, About, Return to Launcher, Quit and Global Options. The fallback
+launcher's Global Options entry is hidden too. Its Backend playlist generator
+is not exposed in this mode; use the frontend's library management instead.
+
+The native in-game Options dialog retains game-specific settings, keymaps and
+any engine-provided tabs. Its Audio tab is omitted in LRHARD builds, including
+Mute all; volume, text/speech mode and subtitle speed use the core options.
+
+Failed content detection or loading returns an error to the frontend instead
+of opening the ScummVM launcher. Errors after engine startup are reported through
+the frontend and finish normal ScummVM cleanup before requesting shutdown.
+Return to launcher on exit is disabled. LRHARD builds do not advertise no-content
+support and reject null-content loads, so empty frontend launch files cannot
+open the launcher. Standard builds retain no-content launcher support.
+
+Native global settings are available through core options in Video, Audio and
+subtitles, MIDI and MT-32, ScummVM interface, and System categories. Native
+configuration options marked "restart" require restarting content. System is the first category, followed by Video.
+There is no separate Timing category. Older frontends receive the same settings
+through the existing v1/v0 fallback, without categories. Missing translations
+use the English definitions.
+
+For options offering **ScummVM CFG**, that default leaves existing global and game-specific
+settings in control. Explicit frontend selections override them for the
+session, without writing those selections to `scummvm.ini`. Native game
+Options can still change settings using ScummVM's usual behavior. Disable
+fixed font scaling defaults to enabled. Exit confirmation and return to the
+launcher on game exit are disabled in this mode.
+
+Video options use explicit defaults: game aspect ratio correction is disabled
+and legacy graphics mode is Automatic. They do not offer ScummVM CFG.
+Graphics filtering is disabled for the session and its core option is omitted.
+The frame rate cap option is omitted too; the core follows the frontend's
+reported refresh rate (60 Hz if unavailable), ignoring any saved cap selection.
+With game aspect ratio correction enabled, legacy resolutions recognized by
+ScummVM (320x200, 640x400, 640x350, 720x348 and 720x350) are reported as 4:3.
+With it disabled, the native width/height ratio is reported. The framebuffer
+is never resized for this correction; the frontend performs the scaling.
+Native dialogs and the launcher keep their configured GUI aspect ratio.
+Game aspect ratio correction applies immediately without restarting content.
+If changed while a native dialog is open, the selected game ratio applies when
+the dialog closes. Legacy graphics mode still requires restarting content.
+Hardware rendering synchronizes geometry updates before drawing, since a
+frontend may clear or replace its framebuffer in the geometry callback.
+The GL pipeline is deactivated before handing control to the frontend so the
+next draw restores the core's viewport, projection, shader and framebuffer.
+
+Audio and subtitles options use explicit defaults without ScummVM CFG: Music
+device and AdLib emulator are Automatic, music volume is 100% (255), effects
+and speech volumes are 80% (204), Text and speech is Both, and subtitle speed
+is 60. Volume choices use 10% steps; the old 75% choice is omitted. Music,
+effects and speech volume changes apply immediately without restarting content.
+The other Audio and subtitles options still require restarting content. Mute all
+audio is disabled for the session and its core option is omitted. The core
+sample rate is fixed at 48000 Hz, ignoring any saved sample-rate option, and
+its option is omitted too.
+
+MIDI and MT-32 options use explicit defaults without ScummVM CFG: General MIDI
+device is Automatic, MT-32 device is MT-32 emulator, Mixed AdLib/MIDI mode is
+enabled, True Roland MT-32 and Roland GS mappings are disabled, and MIDI gain
+is 1.00 (100). Builds without the MT-32 emulator default its device to Automatic.
+MT-32 emulator builds expose MT-32 LCD messages, disabled by default. This toggle
+applies live to new onscreen LCD messages without changing MT-32 audio.
+FluidSynth builds also expose chorus and reverb toggles, both enabled by default.
+These two toggles apply live to active synthesizers during audio generation,
+without restarting content. Detailed parameters are initialized even when an
+effect starts disabled, so enabling it retains its configured sound. Other MIDI
+and MT-32 options require restarting content. Existing SoundFont paths and detailed
+chorus/reverb parameters are retained.
+
+The System category exposes Startup splash screen and Native autosave interval.
+Startup splash screen defaults to Disabled; enabling restores the orange ScummVM
+logo and its 600 ms display delay on the next content load. Game intros and
+error dialogs are unaffected. Native autosave interval defaults to
+5 minutes, with Disabled, 5, 10, 15 and 30 minute choices and no ScummVM CFG
+value. Changes apply live and restart the running engine's autosave timer;
+disabling prevents subsequent native autosaves. Engine support and existing
+save-slot protection are unchanged. Browsing mode is hidden in LRHARD builds,
+which use local filesystem browsing except on Android, where authorized storage
+remains the default. Saved browsing-mode choices are ignored in these builds.
+
+The ScummVM interface category exposes only Scale, Aspect ratio and Resolution.
+Scale defaults to 175%, with 100%, 125%, 150%, 175% and 200% choices. Aspect ratio defaults
+to 16:9 and Resolution to HD (1280x720 at 16:9). These options have no ScummVM
+CFG choice and apply without restarting content: scale updates on the next GUI
+refresh, and aspect ratio/resolution apply when opening a dialog. RePlay's LCD
+and CRT profiles use the same aspect ratio and resolution defaults.
+
+The Antialiased renderer, disabled fixed font scaling, enabled kinetic scrolling,
+English interface language and disabled game-language override are fixed for the
+session and are not exposed as core options. Builds without fancy-theme support
+use the Standard renderer. Antialiased rendering smooths widget edges and uses
+scalable fonts, including for the built-in Classic theme. Install fonts.dat under
+scummvm/extra in the frontend system directory. Missing fonts retain the theme's
+normal fallback. The built-in Classic theme uses charcoal panels, off-white text and blue filled
+button highlights with dark labels. The built-in theme is enforced and saved external-theme
+selections are ignored. Existing 3D renderer configuration is retained;
+fullscreen and shader paths remain frontend settings.
+
+The backend switches output geometry when a dialog opens and restores the
+engine's original geometry when it closes; the game surface is not resized.
+Native GUI overlays and hover tooltips are opaque. Only the top native dialog
+is drawn; closing a nested dialog redraws its parent. No external theme archive
+or theme directory is required. Explicit session settings
+override saved INI values without changing them.
+
+Path resolution and existing path overrides are unchanged. Effective config,
+game, save, theme, extra-data, SoundFont, icon, browser and playlist paths are
+logged at `RETRO_LOG_INFO` at startup and when they change, prefixed with
+`[ScummVM paths]`, for inclusion in issue reports. Advanced settings without a
+core option (for example custom SoundFonts, FluidSynth tuning, arbitrary random
+seeds and keymaps) retain their existing ScummVM configuration.
+
+The option list and configuration adapter live in
+`include/libretro-global-options.inc` and `src/libretro-global-options.cpp`.
+Keep native settings behavior in this backend adapter when updating upstream;
+shared hooks cover menu visibility, dialog stacking, font selection and game-language startup. Non-`LRHARD`
+builds retain upstream menus and do not register these extra core options.
+
+For a single ARM64 build compatible with Raspberry Pi 3, 4 and 5, use
+`platform=rpi3_64 LRHARD=1`. This selects Cortex-A53-compatible instructions
+and OpenGLES2. `rpi4_64` and `rpi5_64` select newer CPUs and should not be used
+for a binary intended to run on Pi 3. A 32-bit operating system requires a
+separate 32-bit build. Keep the same engine selection (for example `LITE=1`)
+when updating an existing installation. Use a toolchain/sysroot matching the
+target operating system; RePlayOS 2 uses Debian Trixie. CPU compatibility alone
+does not ensure that a binary linked against a newer host libc can load there.
+
 ## Libretro playlists for ScummVM core
+
 Playlists used in Libretro frontends (e.g. Retroarch) are plain text lists used to directly launch a game with a specific core from the user interface. Those lists are structured to pass to the core the path of a specific content file to be loaded (e.g. a ROM zip fiile). Detailed info can be found in [Libretro documentation](https://docs.libretro.com/guides/roms-playlists-thumbnails/).
 
 > WARNING: ScummVM core playlist generation with Retroarch Scanner is **NOT recommended** as it is based on a third party database instead of ScummVM game detection system, hence it is not guaranteed to work properly.
@@ -82,7 +214,7 @@ On modern Android versions apps can only access folders explicitly authorized by
 The core can browse both the standard local filesystem and the folders authorized through the frontend (e.g. RetroArch). The starting location of the ScummVM file browser is controlled by the **Browsing mode** core option.
 
 ### Browsing mode
-Available under the frontend core options (e.g. RetroArch `Quick Menu > Core Options > System`):
+Available in standard builds under the frontend core options (e.g. RetroArch `Quick Menu > Core Options > System`); LRHARD builds use the platform default:
 
   - **Authorized storage**: the file browser starts from a virtual root listing only the folders authorized through the frontend. Default on Android.
   - **Local filesystem**: the file browser starts from the standard local path.

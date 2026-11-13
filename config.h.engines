@@ -1,0 +1,36 @@
+
+/* components */
+/* #define USE_CDTOONS */
+#define USE_COKTEL_DECODER
+/* #define USE_ENET */
+#define USE_FMTOWNS_PC98_AUDIO
+#define USE_GIF
+#define USE_HMI_AUDIO
+#define USE_HNM
+#define USE_IMGUI
+#define USE_INDEO3
+#define USE_INDEO45
+#define USE_JYV1
+#define USE_LUA
+#define USE_MACTOOLBOX
+#define USE_MFC
+/* #define USE_VPX */
+#define USE_THEORADEC
+#define USE_MIDI
+/* #define USE_MPCDEC */
+#define USE_MPEG2
+#define USE_MSMPEG4
+#define USE_QDM2
+#define USE_SID_AUDIO
+#define USE_SJIS
+#define USE_SVQ1
+#define USE_TINYGL
+#define USE_TRUEMOTION1
+#define USE_UNIVERSALTRACKER
+#define USE_UNP64
+/* #define USE_VC1 */
+/* #define USE_VIEWS */
+#define USE_VGMTRANS_AUDIO
+#define USE_XAN
+/* end of components */
+/* #define TAINTED_BUILD */

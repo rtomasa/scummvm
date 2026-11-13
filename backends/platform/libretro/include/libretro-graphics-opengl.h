@@ -34,6 +34,16 @@ public:
 	void refreshScreen() override;
 	void setSystemMousePosition(const int x, const int y) override {};
 	void setMouseCursor(const void *buf, uint w, uint h, int hotspotX, int hotspotY, uint32 keycolor, const Graphics::PixelFormat *format, const byte *mask, frac_t scaleX, frac_t scaleY) override;
+#ifdef LRHARD
+	void updateScreen() override;
+	void prepareForFrontend();
+	bool isOverlayInGUI() const { return _overlayInGUI; }
+	void showOverlay(bool inGUI) override;
+	void hideOverlay() override;
+	void clearOverlay() override;
+	void copyRectToOverlay(const void *buf, int pitch, int x, int y, int w, int h) override;
+#endif
+
 	void initSize(uint width, uint height, const Graphics::PixelFormat *format) override;
 	void setMousePosition(int x, int y);
 	void resetContext(OpenGL::ContextType contextType);
@@ -45,6 +55,9 @@ protected:
 	}
 	void handleResizeImpl(const int width, const int height) override;
 private:
+#ifdef LRHARD
+	bool resizeOverlayOutput(uint width, uint height);
+#endif
 	void overrideCursorScaling(void);
 };
 

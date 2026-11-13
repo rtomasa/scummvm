@@ -35,6 +35,7 @@ const char *retro_get_playlist_dir(void);
 
 float retro_setting_get_frame_rate(void);
 uint16 retro_setting_get_sample_rate(void);
+bool retro_has_content(void);
 bool retro_setting_get_browsing_mode_authorized(void);
 uint16 retro_setting_get_audio_samples_buffer_size(void);
 int retro_setting_get_analog_deadzone(void);
@@ -59,6 +60,9 @@ void retro_set_size(unsigned width, unsigned height);
 
 uint8 retro_get_video_hw_mode(void);
 #ifdef USE_OPENGL
+#ifdef LRHARD
+bool retro_sync_hw_geometry();
+#endif
 uintptr_t retro_get_hw_fb(void);
 void *retro_get_proc_address(const char *name);
 #endif

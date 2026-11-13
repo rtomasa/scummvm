@@ -36,6 +36,11 @@
 #include "base/plugins.h"
 #include "base/version.h"
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+#include "backends/platform/libretro/include/libretro-global-options.h"
+#include "backends/platform/libretro/include/libretro-core.h"
+#endif
+
 #include "common/archive.h"
 #include "common/config-manager.h"
 #include "common/debug.h"
@@ -216,6 +221,10 @@ static Common::Error runGame(const Plugin *enginePlugin, OSystem &system, const 
 		err = Common::kPathNotDirectory;
 	}
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	retro_global_options_prepare_game(Common::getLanguageCode(game.language));
+#endif
+
 	// Create the game's MetaEngine.
 	MetaEngine &metaEngine = enginePlugin->get<MetaEngine>();
 	if (err.getCode() == Common::kNoError) {
@@ -300,10 +309,15 @@ static Common::Error runGame(const Plugin *enginePlugin, OSystem &system, const 
 	if (ConfMan.hasKey("gui_use_game_language")
 	    && ConfMan.getBool("gui_use_game_language")
 	    && ConfMan.hasKey("language")) {
-		TransMan.setLanguage(ConfMan.get("language"));
+#if defined(__LIBRETRO__) && defined(LRHARD)
+		const Common::String guiGameLanguage = ConfMan.get("gui_language");
+#else
+		const Common::String guiGameLanguage = ConfMan.get("language");
+#endif
+		TransMan.setLanguage(guiGameLanguage);
 		Common::TextToSpeechManager *ttsMan;
 		if ((ttsMan = g_system->getTextToSpeechManager()) != nullptr) {
-			ttsMan->setLanguage(ConfMan.get("language"));
+			ttsMan->setLanguage(guiGameLanguage);
 		}
 	}
 #endif // USE_TRANSLATION
@@ -755,9 +769,19 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
 			extensionSupportString[neonSupport].c_str());
 	}
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	int frontendExitCode = 0;
+#endif
 	// Unless a game was specified, show the launcher dialog
-	if (nullptr == ConfMan.getActiveDomain() && !ConfMan.hasKey("dump_all_dialogs"))
-		launcherDialog();
+	if (nullptr == ConfMan.getActiveDomain() && !ConfMan.hasKey("dump_all_dialogs")) {
+#if defined(__LIBRETRO__) && defined(LRHARD)
+		if (retro_has_content()) {
+			frontendExitCode = Common::kNoGameDataFoundError;
+			retro_osd_notification("No supported game found", RETRO_LOG_ERROR);
+		} else
+#endif
+			launcherDialog();
+	}
 
 	// FIXME: We're now looping the launcher. This, of course, doesn't
 	// work as well as it should. In theory everything should be destroyed
@@ -864,6 +888,15 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
 			setupKeymapper(system);
 #endif
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+			if (retro_has_content() && result.getCode() != Common::kNoError) {
+				frontendExitCode = result.getCode();
+				if (result.getCode() != Common::kUserCanceled)
+					retro_osd_notification(result.getDesc().c_str(), RETRO_LOG_ERROR);
+				break;
+			}
+#endif
+
 			// Did an error occur ?
 			if (result.getCode() != Common::kNoError && result.getCode() != Common::kUserCanceled) {
 				// Shows an informative error dialog if starting the selected game failed.
@@ -916,11 +949,23 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
 		} else {
 			DebugMan.removeAllDebugChannels();
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+			if (retro_has_content()) {
+				frontendExitCode = result.getCode();
+				retro_osd_notification(result.getDesc().c_str(), RETRO_LOG_ERROR);
+				break;
+			}
+#endif
 			GUI::displayErrorDialog(result, _("Error running game:"));
 
 			// Clear the active domain
 			ConfMan.setActiveDomain("");
 		}
+
+#if defined(__LIBRETRO__) && defined(LRHARD)
+		if (retro_has_content() && nullptr == ConfMan.getActiveDomain())
+			break;
+#endif
 
 		// reset the graphics to default
 		setupGraphics(system);
@@ -965,5 +1010,9 @@ extern "C" int scummvm_main(int argc, const char * const argv[]) {
 	EngineManager::destroy();
 	Graphics::YUVToRGBManager::destroy();
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	return frontendExitCode;
+#else
 	return 0;
+#endif
 }

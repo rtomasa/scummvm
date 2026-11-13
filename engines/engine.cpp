@@ -292,6 +292,12 @@ bool splash = false;
 #include "logo_data.h"
 
 void splashScreen() {
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	if (!ConfMan.getBool("libretro_startup_splash")) {
+		splash = true;
+		return;
+	}
+#endif
 	Common::MemoryReadStream stream(logo_data, ARRAYSIZE(logo_data));
 
 	Image::BitmapDecoder bitmap;
@@ -621,6 +627,14 @@ void Engine::warnMissingExtractedCDAudio() {
 		"order to listen to the game's music.\n"
 		"See the documentation (CD audio) for details."));
 	dialog.runModal();
+}
+
+void Engine::setAutosaveInterval(int interval) {
+	interval = MAX(0, interval);
+	if (_autosaveInterval == interval)
+		return;
+	_autosaveInterval = interval;
+	_lastAutosaveTime = _system->getMillis();
 }
 
 void Engine::handleAutoSave() {

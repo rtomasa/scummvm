@@ -21,24 +21,13 @@
  -->
 <render_info>
 	<palette>
-		<color name = 'black'
-				rgb = '0, 0, 0'
-		/>
-		<color name = 'lightgrey'
-				rgb = '104, 104, 104'
-		/>
-		<color name = 'darkgrey'
-				rgb = '64, 64, 64'
-		/>
-		<color name = 'green'
-				rgb = '32, 160, 32'
-		/>
-		<color name = 'green2'
-				rgb = '0, 255, 0'
-		/>
-		<color name = 'white'
-				rgb = '255, 255, 255'
-		/>
+		<color name = 'background' rgb = '16, 20, 24'/>
+		<color name = 'panel' rgb = '32, 38, 46'/>
+		<color name = 'button' rgb = '48, 58, 70'/>
+		<color name = 'text' rgb = '232, 237, 242'/>
+		<color name = 'accent' rgb = '139, 196, 255'/>
+		<color name = 'disabled' rgb = '137, 147, 159'/>
+		<color name = 'border' rgb = '100, 113, 128'/>
 	</palette>
 
 	<fonts>
@@ -72,101 +61,99 @@
 		</font>
 
 		<text_color	id = 'color_normal'
-				color = 'green'
+				color = 'text'
 		/>
 
 		<text_color	id = 'color_normal_inverted'
-				color = 'black'
+				color = 'background'
 		/>
 
 		<text_color	id = 'color_normal_hover'
-				color = 'green2'
+				color = 'accent'
 		/>
 
 		<text_color	id = 'color_normal_disabled'
-				color = 'lightgrey'
+				color = 'disabled'
 		/>
 
 		<text_color	id = 'color_alternative'
-				color = 'lightgrey'
+				color = 'disabled'
 		/>
 
 		<text_color	id = 'color_alternative_inverted'
-				color = 'white'
+				color = 'background'
 		/>
 
 		<text_color	id = 'color_alternative_hover'
-				color = '176, 176, 176'
+				color = 'text'
 		/>
 
 		<text_color	id = 'color_alternative_disabled'
-				color = 'darkgrey'
+				color = 'disabled'
 		/>
 
 		<text_color id = 'color_override'
-				color = '255, 0, 0'
+				color = 'accent'
 		/>
 
 		<text_color id = 'color_override_inverted'
-				color = '0, 255, 255'
+				color = 'background'
 		/>
 
 		<text_color id = 'color_override_hover'
-				color = '255, 50, 50'
+				color = 'accent'
 		/>
 
 		<text_color id = 'color_override_disabled'
-				color = '255, 200, 200'
+				color = 'disabled'
 		/>
 
 		<text_color	id = 'color_button'
-				color = 'green'
+				color = 'text'
 		/>
 
 		<text_color	id = 'color_button_hover'
-				color = 'green2'
+				color = 'background'
 		/>
 
 		<text_color	id = 'color_button_disabled'
-				color = 'lightgrey'
+				color = 'disabled'
 		/>
 	</fonts>
 
-	<defaults fill = 'foreground' fg_color = 'darkgrey' bg_color = 'black' shadow = '0' bevel_color = 'lightgrey'/>
+	<defaults fill = 'background' fg_color = 'border' bg_color = 'panel' shadow = '0' bevel_color = 'border'/>
 
 	<drawdata id = 'text_selection' cache = 'false'>
 		<drawstep	func = 'square'
 					fill = 'foreground'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 		/>
 	</drawdata>
 
 	<drawdata id = 'text_selection_focus' cache = 'false'>
 		<drawstep	func = 'square'
 					fill = 'foreground'
-					fg_color = 'green'
+					fg_color = 'accent'
 		/>
 	</drawdata>
 
 	<drawdata id = 'mainmenu_bg' cache = 'false'>
 		<drawstep	func = 'fill'
 					fill = 'foreground'
-					fg_color = 'black'
+					fg_color = 'background'
 		/>
 	</drawdata>
 
 	<drawdata id = 'special_bg' cache = 'false'>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'panel' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 	</drawdata>
 
 	<drawdata id = 'tooltip_bg' cache = 'false'>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'foreground'
-					fg_color = 'black'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'panel' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 	</drawdata>
 
 	<drawdata id = 'separator' cache = 'false'>
@@ -174,7 +161,7 @@
 					fill = 'foreground'
 					height = '2'
 					ypos = 'center'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 		/>
 	</drawdata>
 
@@ -187,14 +174,14 @@
 	<drawdata id = 'scrollbar_handle_hover' cache = 'false'>
 		<drawstep	func = 'square'
 					fill = 'foreground'
-					fg_color = 'green2'
+					fg_color = 'accent'
 		/>
 	</drawdata>
 
 	<drawdata id = 'scrollbar_handle_idle' cache = 'false'>
 		<drawstep	func = 'square'
 					fill = 'foreground'
-					fg_color = 'green'
+					fg_color = 'text'
 		/>
 	</drawdata>
 
@@ -204,7 +191,7 @@
 					fill = 'none'
 		/>
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '10'
@@ -221,7 +208,7 @@
 					fill = 'none'
 		/>
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '5'
 					height = '5'
@@ -238,7 +225,7 @@
 					fill = 'none'
 		/>
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '10'
@@ -255,7 +242,7 @@
 					fill = 'none'
 		/>
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '5'
 					height = '5'
@@ -305,21 +292,21 @@
 	<drawdata id = 'slider_disabled' cache = 'false'>
 		<drawstep	func = 'square'
 					fill = 'foreground'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 		/>
 	</drawdata>
 
 	<drawdata id = 'slider_full' cache = 'false'>
 		<drawstep	func = 'square'
 					fill = 'foreground'
-					fg_color = 'green'
+					fg_color = 'text'
 		/>
 	</drawdata>
 
 	<drawdata id = 'slider_hover' cache = 'false'>
 		<drawstep	func = 'square'
 					fill = 'foreground'
-					fg_color = 'green2'
+					fg_color = 'accent'
 		/>
 	</drawdata>
 
@@ -338,7 +325,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -349,7 +336,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -372,7 +359,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -383,7 +370,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -407,7 +394,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -418,7 +405,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -441,7 +428,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -452,7 +439,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -475,7 +462,7 @@
 					fill = 'none'
 		/>
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -486,7 +473,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -507,7 +494,7 @@
 					fill = 'none'
 		/>
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -518,7 +505,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -541,7 +528,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -552,7 +539,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -575,7 +562,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -586,7 +573,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -609,7 +596,7 @@
 					fill = 'none'
 		/>
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -620,7 +607,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -641,7 +628,7 @@
 					fill = 'none'
 		/>
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -652,7 +639,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '10'
 					height = '5'
@@ -675,7 +662,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -686,7 +673,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -709,7 +696,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -720,7 +707,7 @@
 		/>
 
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '7'
 					height = '4'
@@ -772,14 +759,14 @@
 	<drawdata id = 'caret' cache = 'false'>
 		<drawstep	func = 'square'
 					fill = 'foreground'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 		/>
 	</drawdata>
 
 	<drawdata id = 'default_bg' cache = 'false'>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'panel' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 	</drawdata>
 
 	<!-- Pressed button -->
@@ -789,10 +776,9 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'square'
-					fill = 'foreground'
-					fg_color = 'green'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 	</drawdata>
 
 	<drawdata id = 'button_idle' cache = 'false'>
@@ -801,10 +787,9 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'button' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 	</drawdata>
 
 	<drawdata id = 'button_hover' cache = 'false'>
@@ -813,10 +798,9 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 	</drawdata>
 
 	<drawdata id = 'button_disabled' cache = 'false'>
@@ -825,10 +809,9 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'button' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 	</drawdata>
 
 	<drawdata id = 'dropdown_button_idle' cache = 'false' resolution = 'y>=H'>
@@ -837,12 +820,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'button' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -852,7 +834,7 @@
 					orientation = 'bottom'
 		/>
 		<drawstep	func = 'line'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					stroke = '2'
 					fill = 'foreground'
 					width = '0'
@@ -868,12 +850,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'button' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -883,7 +864,7 @@
 					orientation = 'bottom'
 		/>
 		<drawstep	func = 'line'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					stroke = '2'
 					fill = 'foreground'
 					width = '0'
@@ -899,12 +880,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'button' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -920,12 +900,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'button' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -942,12 +921,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -957,7 +935,7 @@
 					orientation = 'bottom'
 		/>
 		<drawstep	func = 'line'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					stroke = '2'
 					fill = 'foreground'
 					width = '0'
@@ -973,12 +951,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -988,7 +965,7 @@
 					orientation = 'bottom'
 		/>
 		<drawstep	func = 'line'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					stroke = '2'
 					fill = 'foreground'
 					width = '0'
@@ -1004,12 +981,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -1025,12 +1001,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -1047,12 +1022,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green2'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -1062,7 +1036,7 @@
 					orientation = 'bottom'
 		/>
 		<drawstep	func = 'line'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					stroke = '2'
 					fill = 'foreground'
 					width = '0'
@@ -1078,12 +1052,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green2'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -1093,7 +1066,7 @@
 					orientation = 'bottom'
 		/>
 		<drawstep	func = 'line'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					stroke = '2'
 					fill = 'foreground'
 					width = '0'
@@ -1109,12 +1082,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green2'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -1130,12 +1102,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green2'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -1152,12 +1123,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'button' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -1167,7 +1137,7 @@
 					orientation = 'bottom'
 		/>
 		<drawstep	func = 'line'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					stroke = '2'
 					fill = 'foreground'
 					width = '0'
@@ -1183,12 +1153,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'button' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -1198,7 +1167,7 @@
 					orientation = 'bottom'
 		/>
 		<drawstep	func = 'line'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					stroke = '2'
 					fill = 'foreground'
 					width = '0'
@@ -1214,12 +1183,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'button' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -1235,12 +1203,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-					fill = 'none'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'button' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -1257,13 +1224,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'square'
-					fill = 'foreground'
-					fg_color = 'green'
-					clip = '0,0,-18,0'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -1279,13 +1244,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'square'
-					fill = 'foreground'
-					fg_color = 'green'
-					clip = '18,0,0,0'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -1301,13 +1264,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'square'
-					fill = 'foreground'
-					fg_color = 'green'
-					clip = '0,0,-7,0'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -1323,13 +1284,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'square'
-					fill = 'foreground'
-					fg_color = 'green'
-					clip = '7,0,0,0'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'green'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -1346,13 +1305,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'square'
-					fill = 'foreground'
-					fg_color = 'green'
-					clip = '-16,0,0,0'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'white'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -1368,13 +1325,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'square'
-					fill = 'foreground'
-					fg_color = 'green'
-					clip = '0,0,16,0'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'white'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '8'
 					height = '6'
@@ -1390,13 +1345,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'square'
-					fill = 'foreground'
-					fg_color = 'green'
-					clip = '-7,0,0,0'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'white'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -1412,13 +1365,11 @@
 				vertical_align = 'center'
 				horizontal_align = 'center'
 		/>
-		<drawstep	func = 'square'
-					fill = 'foreground'
-					fg_color = 'green'
-					clip = '0,0,7,0'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'accent' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'accent' stroke = '1'/>
+
 		<drawstep	func = 'triangle'
-					fg_color = 'white'
+					fg_color = 'background'
 					fill = 'foreground'
 					width = '6'
 					height = '6'
@@ -1442,7 +1393,7 @@
 		<drawstep	func = 'cross'
 					fill = 'foreground'
 					stroke = '2'
-					fg_color = 'lightgrey'
+					fg_color = 'border'
 		/>
 	</drawdata>
 
@@ -1471,7 +1422,7 @@
 		<drawstep	func = 'cross'
 					fill = 'foreground'
 					stroke = '2'
-					fg_color = 'green'
+					fg_color = 'text'
 		/>
 	</drawdata>
 
@@ -1499,7 +1450,7 @@
 					height = '7'
 					radius = '7'
 					fill = 'background'
-					bg_color = 'darkgrey'
+					bg_color = 'panel'
 					xpos = '0'
 					ypos = '0'
 		/>
@@ -1516,7 +1467,7 @@
 					width = '7'
 					height = '7'
 					radius = '7'
-					fg_color = 'darkgrey'
+					fg_color = 'panel'
 					fill = 'none'
 					xpos = '0'
 					ypos = '0'
@@ -1525,7 +1476,7 @@
 					width = '7'
 					height = '7'
 					radius = '5'
-					fg_color = 'green'
+					fg_color = 'text'
 					fill = 'foreground'
 					xpos = '2'
 					ypos = '2'
@@ -1543,7 +1494,7 @@
 					width = '7'
 					height = '7'
 					radius = '7'
-					bg_color = 'lightgrey'
+					bg_color = 'border'
 					fill = 'background'
 					xpos = '0'
 					ypos = '0'
@@ -1551,9 +1502,9 @@
 	</drawdata>
 
 	<drawdata id = 'widget_default' cache = 'false'>
-		<drawstep	func = 'bevelsq'
-					bevel = '2'
-		/>
+		<drawstep func = 'square' fill = 'foreground' fg_color = 'panel' stroke = '0'/>
+		<drawstep func = 'square' fill = 'none' fg_color = 'border' stroke = '1'/>
+
 	</drawdata>
 
 	<drawdata id = 'widget_small' cache = 'false'>

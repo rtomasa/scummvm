@@ -72,24 +72,22 @@ MainMenuDialog::MainMenuDialog(Engine *engine)
 	new GUI::ButtonWidget(this, "GlobalMenu.Save", _("~S~ave"), Common::U32String(), kSaveCmd);
 
 	new GUI::ButtonWidget(this, "GlobalMenu.Options", _("~O~ptions"), Common::U32String(), kOptionsCmd);
-#ifdef LRHARD
-	if (!g_gui.useLowResGUI()) {
-		new GUI::ButtonWidget(this, "GlobalMenu.GlobalOptions", _("Global ~O~ptions"), _("Change global ScummVM options"), kGlobalOptionsCmd);
-	} else {
-		new GUI::ButtonWidget(this, "GlobalMenu.GlobalOptions", _c("Global ~O~pts", "lowres"), _("Change global ScummVM options"), kGlobalOptionsCmd);
-	}
-#endif
 	// The help button is disabled by default.
 	// To enable "Help", an engine needs to use a subclass of MainMenuDialog
 	// (at least for now, we might change how this works in the future).
 	_helpButton = new GUI::ButtonWidget(this, "GlobalMenu.Help", _("Game ~H~elp"), Common::U32String(), kHelpCmd);
+#ifdef LRHARD
+	// Keep the widget allocated for engine subclasses that enable game help.
+	_helpButton->setVisible(false);
+#else
 	_helpButton->setVisible(_engine->hasFeature(Engine::kSupportsHelp));
+#endif
 	_helpButton->setEnabled(_engine->hasFeature(Engine::kSupportsHelp));
 
+#ifndef LRHARD
 	new GUI::ButtonWidget(this, "GlobalMenu.MainHelp", _("~H~elp"), Common::U32String(), kMainHelpCmd);
 
 	new GUI::ButtonWidget(this, "GlobalMenu.About", _("~A~bout"), Common::U32String(), kAboutCmd);
-#ifndef LRHARD
 	if (g_gui.getGUIWidth() > 320)
 		_returnToLauncherButton = new GUI::ButtonWidget(this, "GlobalMenu.ReturnToLauncher", _("~R~eturn to Launcher"), Common::U32String(), kLauncherCmd);
 	else
@@ -156,13 +154,6 @@ void MainMenuDialog::handleCommand(GUI::CommandSender *sender, uint32 cmd, uint3
 		close();
 		}
 		break;
-#ifdef LRHARD
-	case kGlobalOptionsCmd: {
-			GUI::GlobalOptionsDialog opts(nullptr);
-			opts.runModal();
-		}
-		break;
-#endif
 	default:
 		GUI::Dialog::handleCommand(sender, cmd, data);
 	}
@@ -336,6 +327,7 @@ ConfigDialog::ConfigDialog() :
 		tab->removeTab(tabId);
 	}
 
+#ifndef LRHARD
 	//
 	// The Audio / Subtitles tab
 	//
@@ -358,6 +350,8 @@ ConfigDialog::ConfigDialog() :
 		addSubtitleControls(tab, "GlobalConfig_Audio.", 255);
 		setSubtitleSettingsState(true); // could disable controls by GUI options
 	}
+
+#endif
 
 	//
 	// The Keymap tab
@@ -417,6 +411,7 @@ ConfigDialog::ConfigDialog() :
 
 ConfigDialog::~ConfigDialog() {
 }
+
 
 void ConfigDialog::build() {
 	OptionsDialog::build();

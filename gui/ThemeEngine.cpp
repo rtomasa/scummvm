@@ -45,6 +45,10 @@
 #include "gui/ThemeEval.h"
 #include "gui/ThemeParser.h"
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+#include "backends/platform/libretro/include/libretro-global-options.h"
+#endif
+
 namespace GUI {
 
 const char *const ThemeEngine::kImageLogo = "logo.bmp";
@@ -537,6 +541,18 @@ bool ThemeEngine::addFont(TextData textId, const Common::String &language, const
 
 	_texts[textId] = new TextDrawData;
 
+#if defined(__LIBRETRO__) && defined(LRHARD) && defined(USE_FREETYPE2)
+	if (_graphicsMode == kGfxAntialias && scalableFile.empty()) {
+		const Graphics::Font *font = retro_global_options_gui_font(file.c_str(), pointsize, textId == kTextDataConsole, textId == kTextDataDefault);
+		if (font) {
+			_texts[textId]->_fontPtr = font;
+			if (textId == kTextDataDefault)
+				_font = font;
+			return true;
+		}
+	}
+#endif
+
 	if (file == "default") {
 		_texts[textId]->_fontPtr = _font;
 	} else {
@@ -558,6 +574,11 @@ bool ThemeEngine::addFont(TextData textId, const Common::String &language, const
 			return false; // fall-back attempt failed
 		}
 	}
+
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	if (_graphicsMode == kGfxAntialias && textId == kTextDataDefault)
+		_font = _texts[textId]->_fontPtr;
+#endif
 
 	return true;
 
@@ -1268,6 +1289,22 @@ void ThemeEngine::drawDialogBackground(const Common::Rect &r, DialogBackground b
 	if (type == kDDNone) {
 		return;
 	}
+
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	if (bgtype == kDialogBackgroundTooltip && _layerToDraw == kDrawLayerForeground) {
+		Common::Rect opaqueRect = r;
+		opaqueRect.clip(_clip);
+		opaqueRect.clip(_screen.w, _screen.h);
+		if (!opaqueRect.isEmpty()) {
+			_vectorRenderer->getActiveSurface()->fillRect(opaqueRect, _overlayFormat.ARGBToColor(255, 0, 0, 0));
+			addDirtyRect(opaqueRect);
+		}
+		_vectorRenderer->disableShadows();
+		drawDD(type, r);
+		_vectorRenderer->enableShadows();
+		return;
+	}
+#endif
 
 	drawDD(type, r);
 }

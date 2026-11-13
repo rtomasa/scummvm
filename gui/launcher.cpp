@@ -277,7 +277,9 @@ void LauncherDialog::build() {
 		_mainHelpButton = new ButtonWidget(this, _title + ".MainHelpButton", _("Help"), _("General help"), kHelpCmd);
 
 	// I18N: Button caption. O is the shortcut, Ctrl+O, put it in parens for non-latin (~O~)
+#ifndef LRHARD
 	new ButtonWidget(this, _title + ".OptionsButton", _("Global ~O~ptions..."), _("Change global ScummVM options"), kOptionsCmd, 0, _c("Global ~O~pts...", "lowres"));
+#endif
 
 #if defined(USE_DLC)
 	if (g_system->hasFeature(OSystem::kFeatureDLC)) {
@@ -834,11 +836,13 @@ void LauncherDialog::handleCommand(CommandSender *sender, uint32 cmd, uint32 dat
 		recordGame(item);
 		break;
 #endif
+#ifndef LRHARD
 	case kOptionsCmd: {
 		GlobalOptionsDialog options(this);
 		options.runModal();
 		}
 		break;
+#endif
 	case kAboutCmd: {
 		AboutDialog about;
 		about.runModal();

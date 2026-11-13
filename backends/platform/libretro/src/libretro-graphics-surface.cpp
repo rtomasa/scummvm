@@ -24,6 +24,7 @@
 
 #include "backends/platform/libretro/include/libretro-defs.h"
 #include "backends/platform/libretro/include/libretro-core.h"
+#include "backends/platform/libretro/include/libretro-global-options.h"
 #include "backends/platform/libretro/include/libretro-os.h"
 #include "backends/platform/libretro/include/libretro-timer.h"
 #include "backends/platform/libretro/include/libretro-graphics-surface.h"
@@ -139,7 +140,11 @@ void LibretroGraphics::realUpdateScreen(void) {
 }
 
 void LibretroGraphics::clearOverlay() {
+#ifdef LRHARD
+	_overlay.fillRect(Common::Rect(_overlay.w, _overlay.h), getOverlayFormat().RGBToColor(16, 20, 24));
+#else
 	_overlay.fillRect(Common::Rect(_overlay.w, _overlay.h), 0);
+#endif
 }
 
 void LibretroGraphics::grabOverlay(Graphics::Surface &surface) const {
@@ -232,6 +237,9 @@ void LibretroGraphics::grabPalette(byte *colors, uint start, uint num) const {
 
 bool LibretroGraphics::hasFeature(OSystem::Feature f) const {
 	return (f == OSystem::kFeatureCursorPalette) ||
+#ifdef LRHARD
+	       (f == OSystem::kFeatureAspectRatioCorrection) ||
+#endif
 #ifdef SCUMMVM_NEON
 	       (f == OSystem::kFeatureCpuNEON) ||
 #endif
@@ -239,11 +247,19 @@ bool LibretroGraphics::hasFeature(OSystem::Feature f) const {
 }
 
 void LibretroGraphics::setFeatureState(OSystem::Feature f, bool enable) {
+#ifdef LRHARD
+	if (f == OSystem::kFeatureAspectRatioCorrection)
+		_aspectRatioCorrection = enable;
+#endif
 	if (f == OSystem::kFeatureCursorPalette)
 		_cursorPaletteEnabled = enable;
 }
 
 bool LibretroGraphics::getFeatureState(OSystem::Feature f) const {
+#ifdef LRHARD
+	if (f == OSystem::kFeatureAspectRatioCorrection)
+		return _aspectRatioCorrection;
+#endif
 	return (f == OSystem::kFeatureCursorPalette) ? _cursorPaletteEnabled : false;
 }
 
@@ -260,3 +276,42 @@ void LibretroGraphics::displayMessageOnOSD(const Common::U32String &msg) {
 int LibretroGraphics::getScreenChangeID() const {
 	return _screenChangeID;
 }
+
+#ifdef LRHARD
+// Resize the dialog output without changing the engine's game surface.
+bool LibretroGraphics::resizeOverlayOutput(uint width, uint height) {
+	if (!width || !height || (getWindowWidth() == width && getWindowHeight() == height))
+		return false;
+	_overlay.create(width, height, getOverlayFormat());
+	_screen.create(width, height, getOverlayFormat());
+	const int mouseX = getWindowWidth() ? CLIP<int>(LIBRETRO_G_SYSTEM->_mouseX * (int)width / getWindowWidth(), 0, width - 1) : 0;
+	const int mouseY = getWindowHeight() ? CLIP<int>(LIBRETRO_G_SYSTEM->_mouseY * (int)height / getWindowHeight(), 0, height - 1) : 0;
+	handleResize(width, height);
+	recalculateDisplayAreas();
+	retro_set_size(width, height);
+	LIBRETRO_G_SYSTEM->refreshRetroSettings();
+	LIBRETRO_G_SYSTEM->_mouseX = mouseX;
+	LIBRETRO_G_SYSTEM->_mouseY = mouseY;
+	setMousePosition(mouseX, mouseY);
+	++_screenChangeID;
+	return true;
+}
+
+void LibretroGraphics::showOverlay(bool inGUI) {
+	const bool resized = resizeOverlayOutput(inGUI ? retro_setting_get_gui_res_w() : getWidth(),
+	                                        inGUI ? retro_setting_get_gui_res_h() : getHeight());
+	WindowedGraphicsManager::showOverlay(inGUI);
+	overrideCursorScaling();
+	// Refresh theme buffers before ThemeEngine::enable() clears/draws them.
+	if (resized && inGUI)
+		g_gui.checkScreenChange();
+	if (inGUI)
+		retro_global_options_log_gui();
+}
+
+void LibretroGraphics::hideOverlay() {
+	WindowedGraphicsManager::hideOverlay();
+	resizeOverlayOutput(getWidth(), getHeight());
+	overrideCursorScaling();
+}
+#endif // LRHARD

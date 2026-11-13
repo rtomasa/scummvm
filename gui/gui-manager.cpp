@@ -46,6 +46,10 @@ DECLARE_SINGLETON(GUI::GuiManager);
 
 namespace GUI {
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+static int lastGuiScale = 0;
+#endif
+
 enum {
 	kDoubleClickDelay = 500, // milliseconds
 	kCursorAnimateDelay = 250,
@@ -85,8 +89,12 @@ GuiManager::GuiManager() : CommandSender(nullptr), _redrawStatus(kRedrawDisabled
 	initIconsSet();
 	_iconsSetChanged = false;
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	Common::String themefile("builtin");
+#else
 	ConfMan.registerDefault("gui_theme", "scummremastered");
 	Common::String themefile(ConfMan.get("gui_theme"));
+#endif
 
 	ConfMan.registerDefault("gui_renderer", ThemeEngine::findModeConfigName(ThemeEngine::_defaultRendererMode));
 	ThemeEngine::GraphicsMode gfxMode = (ThemeEngine::GraphicsMode)ThemeEngine::findMode(ConfMan.get("gui_renderer"));
@@ -128,6 +136,9 @@ void GuiManager::computeScaleFactor() {
 	_scaleFactor = g_system->getHiDPIScreenFactor();
 	if (ConfMan.hasKey("gui_scale"))
 		_scaleFactor *= ConfMan.getInt("gui_scale") / 100.f;
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	lastGuiScale = ConfMan.getInt("gui_scale");
+#endif
 
 	_baseHeight = (int16)((float)h / _scaleFactor);
 	_baseWidth = (int16)((float)w / _scaleFactor);
@@ -306,6 +317,9 @@ void GuiManager::enableKeymap(bool enabled) {
 }
 
 bool GuiManager::loadNewTheme(Common::String id, ThemeEngine::GraphicsMode gfx, bool forced) {
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	id = "builtin";
+#endif
 	// If we are asked to reload the currently active theme, just do nothing
 	// FIXME: Actually, why? It might be desirable at times to force a theme reload...
 	if (!forced)
@@ -540,11 +554,15 @@ void GuiManager::redraw() {
 	if (_dialogStack.empty())
 		return;
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	redrawInternalTopDialogOnly();
+#else
 	if (_displayTopDialogOnly) {
 		redrawInternalTopDialogOnly();
 	} else {
 		redrawInternal();
 	}
+#endif
 
 	_theme->updateScreen();
 	_redrawStatus = kRedrawDisabled;
@@ -876,7 +894,11 @@ void GuiManager::animateCursor() {
 
 bool GuiManager::checkScreenChange() {
 	int tmpScreenChangeID = _system->getScreenChangeID();
-	if (_lastScreenChangeID != tmpScreenChangeID) {
+	if (_lastScreenChangeID != tmpScreenChangeID
+#if defined(__LIBRETRO__) && defined(LRHARD)
+		|| lastGuiScale != ConfMan.getInt("gui_scale")
+#endif
+	) {
 		screenChange();
 		return true;
 	}

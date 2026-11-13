@@ -33,6 +33,9 @@ public:
 	Graphics::Palette _gamePalette;
 
 private:
+#ifdef LRHARD
+	bool _aspectRatioCorrection = false;
+#endif
 	float _cursorScaleX;
 	float _cursorScaleY;
 	bool _cursorPaletteEnabled;
@@ -51,6 +54,11 @@ public:
 	~LibretroGraphics();
 	Common::List<Graphics::PixelFormat> getSupportedFormats() const override;
 	const OSystem::GraphicsMode *getSupportedGraphicsModes(void) const override;
+#ifdef LRHARD
+	void showOverlay(bool inGUI) override;
+	void hideOverlay() override;
+#endif
+
 	void initSize(uint width, uint height, const Graphics::PixelFormat *format) override;
 	int16 getHeight(void) const override;
 	int16 getWidth(void) const override;
@@ -110,6 +118,9 @@ protected:
 	void setPalette(const byte *colors, uint start, uint num) override;
 	void grabPalette(byte *colors, uint start, uint num) const override;
 private:
+#ifdef LRHARD
+	bool resizeOverlayOutput(uint width, uint height);
+#endif
 	void overrideCursorScaling();
 };
 #endif //BACKENDS_LIBRETRO_GRAPHICS_SURFACE_H

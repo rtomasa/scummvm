@@ -39,6 +39,9 @@
 
 #include "common/scummsys.h"
 #include "common/config-manager.h"
+#if defined(__LIBRETRO__) && defined(LRHARD)
+#include "backends/platform/libretro/include/libretro-global-options.h"
+#endif
 #include "common/error.h"
 #include "common/stream.h"
 #include "common/system.h"
@@ -100,6 +103,10 @@ private:
 	fluid_synth_t *_synth;
 	int _soundFont;
 	int _outputRate;
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	unsigned _retroEffects;
+	void syncRetroEffects();
+#endif
 	Common::SeekableReadStream *_engineSoundFontData;
 
 protected:
@@ -390,7 +397,14 @@ int MidiDriver_FluidSynth::open() {
 
 	_synth = new_fluid_synth(_settings);
 
-	if (ConfMan.getBool("fluidsynth_chorus_activate")) {
+	bool chorusEnabled = ConfMan.getBool("fluidsynth_chorus_activate");
+	bool reverbEnabled = ConfMan.getBool("fluidsynth_reverb_activate");
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	// Initialize parameters even when a live effect starts disabled.
+	chorusEnabled = reverbEnabled = true;
+	_retroEffects = ~0U;
+#endif
+	if (chorusEnabled) {
 #if FS_API_VERSION >= 0x0202
 		fluid_synth_chorus_on(_synth, -1, 1);
 #else
@@ -427,7 +441,7 @@ int MidiDriver_FluidSynth::open() {
 #endif
 	}
 
-	if (ConfMan.getBool("fluidsynth_reverb_activate")) {
+	if (reverbEnabled) {
 #if FS_API_VERSION >= 0x0202
 		fluid_synth_reverb_on(_synth, -1, 1);
 #else
@@ -454,6 +468,10 @@ int MidiDriver_FluidSynth::open() {
 		fluid_synth_set_reverb_on(_synth, 0);
 #endif
 	}
+
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	syncRetroEffects();
+#endif
 
 	Common::String interpolation = ConfMan.get("fluidsynth_misc_interpolation");
 	int interpMethod = FLUID_INTERP_4THORDER;
@@ -594,7 +612,26 @@ MidiChannel *MidiDriver_FluidSynth::getPercussionChannel() {
 	return &_midiChannels[9];
 }
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+void MidiDriver_FluidSynth::syncRetroEffects() {
+	const unsigned effects = retro_global_options_fluid_effects();
+	if (effects == _retroEffects)
+		return;
+#if FS_API_VERSION >= 0x0202
+	fluid_synth_chorus_on(_synth, -1, (effects & RETRO_FLUID_CHORUS) != 0);
+	fluid_synth_reverb_on(_synth, -1, (effects & RETRO_FLUID_REVERB) != 0);
+#else
+	fluid_synth_set_chorus_on(_synth, (effects & RETRO_FLUID_CHORUS) != 0);
+	fluid_synth_set_reverb_on(_synth, (effects & RETRO_FLUID_REVERB) != 0);
+#endif
+	_retroEffects = effects;
+}
+#endif
+
 void MidiDriver_FluidSynth::generateSamples(int16 *data, int len) {
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	syncRetroEffects();
+#endif
 	fluid_synth_write_s16(_synth, len, data, 0, 2, data, 1, 2);
 }
 

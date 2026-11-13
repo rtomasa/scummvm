@@ -24,6 +24,10 @@
 
 #ifdef USE_MT32EMU
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+#include "backends/platform/libretro/include/libretro-global-options.h"
+#endif
+
 #include "audio/softsynth/emumidi.h"
 #include "audio/softsynth/mt32/font_6x8.h"
 #include "audio/softsynth/mt32/lcd_bg_data.h"
@@ -143,6 +147,10 @@ public:
 		error("MT32emu: Init Error - Missing PCM ROM image");
 	}
 	void showLCDMessage(const char *message) override {
+#if defined(__LIBRETRO__) && defined(LRHARD)
+		if (!retro_global_options_mt32_lcd_enabled())
+			return;
+#endif
 		// Don't show messages that are only spaces, e.g. the first
 		// message in Operation Stealth.
 		bool isOnlySpaces = true;

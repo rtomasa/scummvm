@@ -36,6 +36,7 @@
 #include "backends/platform/libretro/include/libretro-core.h"
 #include "backends/platform/libretro/include/libretro-timer.h"
 #include "backends/platform/libretro/include/libretro-os.h"
+#include "backends/platform/libretro/include/libretro-global-options.h"
 #include "backends/platform/libretro/include/libretro-graphics-surface.h"
 #ifdef USE_OPENGL
 #include "backends/platform/libretro/include/libretro-graphics-opengl.h"
@@ -59,6 +60,7 @@ OSystem_libretro::~OSystem_libretro() {
 }
 
 void OSystem_libretro::initBackend() {
+	retro_global_options_init();
 	/* ScummVM paths checks are triggered by applyBackendSettings on setupGraphics() */
 
 	/* Initialize other settings */
@@ -123,6 +125,10 @@ bool OSystem_libretro::hasFeature(Feature f) {
 }
 
 void OSystem_libretro::refreshRetroSettings() {
+#ifdef LRHARD
+	if (!_graphicsManager)
+		return;
+#endif
 	_adjusted_cursor_speed = (float)BASE_CURSOR_SPEED * retro_setting_get_gamepad_cursor_speed() * (float)getScreenWidth() / 320.0f; // Dpad cursor speed should always be based off a 320 wide screen, to keep speeds consistent;
 	_inverse_acceleration_time = (retro_setting_get_gamepad_acceleration_time() > 0.0) ? (1.0f / (float)retro_setting_get_frame_rate()) * (1.0f / retro_setting_get_gamepad_acceleration_time()) : 1.0f;
 }
@@ -139,6 +145,10 @@ void OSystem_libretro::getScreen(const Graphics::ManagedSurface *&screen) {
 void OSystem_libretro::refreshScreen(void) {
 	if (retro_get_video_hw_mode() & VIDEO_GRAPHIC_MODE_REQUEST_SW)
 		dynamic_cast<LibretroGraphics *>(_graphicsManager)->realUpdateScreen();
+#if defined(LRHARD) && defined(USE_OPENGL)
+	else
+		dynamic_cast<LibretroOpenGLGraphics *>(_graphicsManager)->prepareForFrontend();
+#endif
 }
 
 #ifdef USE_OPENGL
@@ -183,3 +193,30 @@ void OSystem_libretro::resetGraphicsManager(void) {
 bool OSystem_libretro::inLauncher() {
 	return (nullptr == ConfMan.getActiveDomain());
 }
+
+#ifdef LRHARD
+float OSystem_libretro::getDisplayAspectRatio() {
+	if (!_graphicsManager || !getScreenWidth() || !getScreenHeight())
+		return 0;
+	const float nativeRatio = (float)getScreenWidth() / getScreenHeight();
+	bool inGUI;
+#ifdef USE_OPENGL
+	if (retro_get_video_hw_mode() & VIDEO_GRAPHIC_MODE_REQUEST_HW)
+		inGUI = dynamic_cast<LibretroOpenGLGraphics *>(_graphicsManager)->isOverlayInGUI();
+	else
+#endif
+		inGUI = dynamic_cast<LibretroGraphics *>(_graphicsManager)->isOverlayInGUI();
+	// The session option controls frontend geometry independently of native scaling.
+	if (inLauncher() || inGUI || !ConfMan.getBool("aspect_ratio"))
+		return nativeRatio;
+
+	// Match ScummVM's legacy correction modes, but leave scaling to the frontend.
+	const uint width = getWidth();
+	const uint height = getHeight();
+	if ((width == 320 && height == 200) || (width == 640 && height == 400) ||
+	    (width == 640 && height == 350) || (width == 720 && height == 348) ||
+	    (width == 720 && height == 350))
+		return 4.0f / 3.0f;
+	return nativeRatio;
+}
+#endif

@@ -20,9 +20,13 @@
 
 #include "backends/platform/libretro/include/libretro-defs.h"
 #include "backends/platform/libretro/include/libretro-core.h"
+#include "backends/platform/libretro/include/libretro-global-options.h"
 #include "backends/platform/libretro/include/libretro-os.h"
 #include "backends/platform/libretro/include/libretro-timer.h"
 #include "backends/platform/libretro/include/libretro-graphics-opengl.h"
+#ifdef LRHARD
+#include "backends/graphics/opengl/pipelines/pipeline.h"
+#endif
 
 #include "gui/gui-manager.h"
 
@@ -126,3 +130,77 @@ void LibretroOpenGLGraphics::resetContext(OpenGL::ContextType contextType) {
 	if (_overlayInGUI)
 		g_gui.checkScreenChange();
 }
+
+#ifdef LRHARD
+void LibretroOpenGLGraphics::updateScreen() {
+	if (retro_sync_hw_geometry())
+		_forceRedraw = true;
+	OpenGL::OpenGLGraphicsManager::updateScreen();
+}
+
+void LibretroOpenGLGraphics::prepareForFrontend() {
+	// The frontend changes GL state, so the next draw must reactivate our pipeline.
+	OpenGL::Pipeline::disable();
+}
+
+// Resize the dialog output without changing the engine's game surface.
+bool LibretroOpenGLGraphics::resizeOverlayOutput(uint width, uint height) {
+	if (!width || !height || (getWindowWidth() == width && getWindowHeight() == height))
+		return false;
+	const int mouseX = getWindowWidth() ? CLIP<int>(LIBRETRO_G_SYSTEM->_mouseX * (int)width / getWindowWidth(), 0, width - 1) : 0;
+	const int mouseY = getWindowHeight() ? CLIP<int>(LIBRETRO_G_SYSTEM->_mouseY * (int)height / getWindowHeight(), 0, height - 1) : 0;
+	handleResize(width, height);
+	recalculateDisplayAreas();
+	retro_set_size(width, height);
+	LIBRETRO_G_SYSTEM->refreshRetroSettings();
+	LIBRETRO_G_SYSTEM->_mouseX = mouseX;
+	LIBRETRO_G_SYSTEM->_mouseY = mouseY;
+	setMousePosition(mouseX, mouseY);
+	return true;
+}
+
+void LibretroOpenGLGraphics::showOverlay(bool inGUI) {
+	const bool resized = resizeOverlayOutput(inGUI ? retro_setting_get_gui_res_w() : getWidth(),
+	                                        inGUI ? retro_setting_get_gui_res_h() : getHeight());
+	OpenGL::OpenGLGraphicsManager::showOverlay(inGUI);
+	overrideCursorScaling();
+	// Refresh theme buffers before ThemeEngine::enable() clears/draws them.
+	if (resized && inGUI)
+		g_gui.checkScreenChange();
+	if (inGUI)
+		retro_global_options_log_gui();
+}
+
+void LibretroOpenGLGraphics::hideOverlay() {
+	OpenGL::OpenGLGraphicsManager::hideOverlay();
+	resizeOverlayOutput(getWidth(), getHeight());
+	overrideCursorScaling();
+}
+
+void LibretroOpenGLGraphics::clearOverlay() {
+	if (_overlayInGUI)
+		_overlay->fill(getOverlayFormat().ARGBToColor(255, 16, 20, 24));
+	else
+		OpenGL::OpenGLGraphicsManager::clearOverlay();
+}
+
+void LibretroOpenGLGraphics::copyRectToOverlay(const void *buf, int pitch, int x, int y, int w, int h) {
+	if (!_overlayInGUI) {
+		OpenGL::OpenGLGraphicsManager::copyRectToOverlay(buf, pitch, x, y, w, h);
+		return;
+	}
+	// Flatten native GUI alpha onto the black overlay, leaving engine overlays
+	// and the cursor's transparency unchanged. The overlay format is RGBA8888.
+	Graphics::Surface opaque;
+	opaque.create(w, h, getOverlayFormat());
+	opaque.copyRectToSurface(buf, pitch, 0, 0, w, h);
+	const uint32 alpha = opaque.format.ARGBToColor(255, 0, 0, 0);
+	for (int row = 0; row < h; ++row) {
+		uint32 *pixels = static_cast<uint32 *>(opaque.getBasePtr(0, row));
+		for (int col = 0; col < w; ++col)
+			pixels[col] |= alpha;
+	}
+	OpenGL::OpenGLGraphicsManager::copyRectToOverlay(opaque.getPixels(), opaque.pitch, x, y, w, h);
+	opaque.free();
+}
+#endif // LRHARD

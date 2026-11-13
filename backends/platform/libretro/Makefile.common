@@ -161,7 +161,7 @@ DEFINES += -DUSE_VPX
 endif
 
 USE_MPCDEC         ?= 0
-UNAVAILABLE_DEPS += $(call check_deps_availability, $(USE_MPCDEC), component_mpcdec)
+UNAVAILABLE_DEPS += $(call check_deps_availability, $(USE_MPCDEC), component_mpc)
 ifneq ($(USE_MPCDEC),1)
 USE_MPCDEC=
 else
@@ -270,6 +270,7 @@ INCLUDES     += -I$(ROOT_PATH)/include
 MODULE_PATHS += $(CORE_PATH)
 
 LIBRETRO_OBJS := $(CORE_PATH)/libretro-core.o \
+	$(CORE_PATH)/libretro-global-options.o \
 	$(CORE_PATH)/libretro-fs.o \
 	$(CORE_PATH)/libretro-fs-factory.o \
 	$(CORE_PATH)/libretro-os-base.o \
@@ -341,7 +342,7 @@ ifeq ($(USE_SID_AUDIO),1)
 endif
 
 # Retrieve shared modules definitions from main Makefile.common
-RETRIEVED_SHARED_MODULES := $(shell cat $(UP_COMMON_MAKE) | tr -s "\n" "\00" | sed -e 's|.*-include engines/engines.mk||' -e 's|\#\#\#.*||' | tr -s "\00" "\n" > $(SHARED_MOD_MAKE) && printf ok || printf error)
+RETRIEVED_SHARED_MODULES := $(shell cat $(UP_COMMON_MAKE) | tr -s "\n" "\00" | sed -e 's|.*\# After the game specific modules follow the shared modules||' -e 's|\#\#\#.*||' | tr -s "\00" "\n" > $(SHARED_MOD_MAKE) && printf ok || printf error)
 ifeq ($(RETRIEVED_SHARED_MODULES), ok)
    include $(SHARED_MOD_MAKE)
 else

@@ -752,6 +752,9 @@ public:
 	 */
 	void handleAutoSave();
 
+	/** Change the autosave interval in seconds and restart its timer. */
+	void setAutosaveInterval(int interval);
+
 	/**
 	 * Autosave immediately if autosaves are enabled.
 	 */

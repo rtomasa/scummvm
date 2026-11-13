@@ -73,34 +73,46 @@ extern "C" {
 
 struct retro_core_option_v2_category option_cats_us[] = {
 	{
-		"video",
-		"Video settings",
-		"Configure video settings"
+		"system",
+		"System",
+		"Configure system settings"
 	},
+	{ "video", "Video", "Configure video settings" },
+#ifdef LRHARD
+	{"audio", "Audio and subtitles", "Configure native audio, speech and text settings"},
+	{"midi", "MIDI and MT-32", "Configure native MIDI synthesis"},
+	{"interface", "ScummVM interface", "Configure native dialogs"},
+#endif
 	{
 		"cursor",
 		"Cursor Movement",
 		"Configure cursor movement settings"
 	},
-	{
-		"timing",
-		"Timing",
-		"Configure timing settings"
-	},
+#ifndef LRHARD
+	{ "timing", "Timing", "Configure timing settings" },
+#endif
 	{
 		"retropad",
 		"RetroPad mapping",
 		"Configure RetroPad mapping"
 	},
-	{
-		"system",
-		"System",
-		"Configure system settings"
-	},
 	{ NULL, NULL, NULL },
 };
 
 struct retro_core_option_v2_definition option_defs_us[] = {
+#ifdef LRHARD
+#define LR_GLOBAL_OPTION(key, setting, title, info, category, defaultValue, ...) \
+	{"scummvm_global_" key, "ScummVM > " title " (restart)", title " (restart)", \
+	 info " Restart content to apply. Explicit choices override scummvm.ini for this session.", \
+	 nullptr, category, {__VA_ARGS__}, defaultValue},
+#define LR_GLOBAL_LIVE_OPTION(key, setting, title, info, category, defaultValue, ...) \
+	{"scummvm_global_" key, "ScummVM > " title, title, \
+	 info " Changes apply immediately. Explicit choices override scummvm.ini for this session.", \
+	 nullptr, category, {__VA_ARGS__}, defaultValue},
+#include "libretro-global-options.inc"
+#undef LR_GLOBAL_LIVE_OPTION
+#undef LR_GLOBAL_OPTION
+#endif
 	{
 		"scummvm_pointer_device",
 		"Cursor > Pointer Device",
@@ -244,6 +256,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
 		},
 		"4"
 	},
+#ifndef LRHARD
 	{
 		"scummvm_framerate",
 		"Timing > Frame rate cap",
@@ -261,6 +274,8 @@ struct retro_core_option_v2_definition option_defs_us[] = {
 		},
 		"disabled"
 	},
+#endif
+#ifndef LRHARD
 	{
 		"scummvm_samplerate",
 		"Timing > Sample rate",
@@ -275,6 +290,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
 		},
 		"48000 Hz"
 	},
+#endif
 	/* Button mappings */
 	{
 		"scummvm_mapper_up",
@@ -589,11 +605,21 @@ struct retro_core_option_v2_definition option_defs_us[] = {
 #ifdef USE_HIGHRES
 	{
 		"scummvm_gui_aspect_ratio",
+#ifdef LRHARD
+		"ScummVM interface > Aspect ratio",
+		"Aspect ratio",
+		"Set the aspect ratio of ScummVM native dialogs and the launcher. Applied when opening a dialog.",
+#else
 		"Video > GUI aspect ratio",
 		"ScummVM Launcher aspect ratio",
 		"Set ScummVM Launcher aspect ratio.",
+#endif
 		NULL,
+#ifdef LRHARD
+		"interface",
+#else
 		"video",
+#endif
 		{
 			{"0", "4:3"},
 			{"1", "16:9"},
@@ -603,11 +629,21 @@ struct retro_core_option_v2_definition option_defs_us[] = {
 	},
 	{
 		"scummvm_gui_h_res",
+#ifdef LRHARD
+		"ScummVM interface > Resolution",
+		"Resolution",
+		"Set the vertical resolution of ScummVM native dialogs and the launcher. Higher resolutions require more processing power. Applied when opening a dialog.",
+#else
 		"Video > GUI resolution",
 		"ScummVM Launcher resolution",
 		"Set ScummVM Launcher resolution.",
+#endif
 		NULL,
+#ifdef LRHARD
+		"interface",
+#else
 		"video",
+#endif
 		{
 			{"240", "LD"},
 			{"480", "SD"},
@@ -618,6 +654,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
 		"720"
 	},
 #endif
+#ifndef LRHARD
 	{
 		"scummvm_browsing_mode",
 		"System > Browsing mode",
@@ -636,6 +673,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
 		"local"
 #endif
 	},
+#endif
 	{ NULL, NULL, NULL, NULL, NULL, NULL, {{0}}, NULL },
 };
 
@@ -906,6 +944,54 @@ static INLINE void libretro_fill_options_mapper_data(retro_environment_t environ
 #endif
 }
 
+#if defined(LRHARD) && !defined(HAVE_NO_LANGEXTRA)
+static INLINE void libretro_align_local_categories(void) {
+	static bool aligned = false;
+	static struct retro_core_option_v2_category categories[RETRO_LANGUAGE_LAST][sizeof(option_cats_us) / sizeof(option_cats_us[0])];
+	if (aligned)
+		return;
+	aligned = true;
+	for (unsigned language = 0; language < RETRO_LANGUAGE_LAST; ++language) {
+		struct retro_core_options_v2 *local = options_intl[language];
+		if (!local || local == &options_us)
+			continue;
+		for (unsigned i = 0; option_cats_us[i].key; ++i) {
+			categories[language][i] = option_cats_us[i];
+			for (const struct retro_core_option_v2_category *cat = local->categories; cat && cat->key; ++cat) {
+				if (!strcmp(cat->key, option_cats_us[i].key)) {
+					categories[language][i] = *cat;
+					break;
+				}
+			}
+		}
+		local->categories = categories[language];
+		// Remove hidden options from translated definitions too.
+		struct retro_core_option_v2_definition *out = local->definitions;
+		for (struct retro_core_option_v2_definition *def = local->definitions; def->key; ++def) {
+			if (strcmp(def->key, "scummvm_framerate") && strcmp(def->key, "scummvm_samplerate") &&
+				strcmp(def->key, "scummvm_browsing_mode"))
+				*out++ = *def;
+		}
+		*out = {};
+		for (struct retro_core_option_v2_definition *def = local->definitions; def->key; ++def) {
+			if (!strcmp(def->key, "scummvm_gui_aspect_ratio") || !strcmp(def->key, "scummvm_gui_h_res")) {
+				def->category_key = "interface";
+				// Existing translations describe launcher-only behavior.
+				for (const struct retro_core_option_v2_definition *us = option_defs_us; us->key; ++us) {
+					if (!strcmp(us->key, def->key)) {
+						def->desc = us->desc;
+						def->desc_categorized = us->desc_categorized;
+						def->info = us->info;
+						def->default_value = us->default_value;
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+#endif
+
 /* Handles configuration/setting of core options.
  * Should be called as early as possible - ideally inside
  * retro_set_environment(), and no later than retro_load_game()
@@ -924,6 +1010,9 @@ static INLINE void libretro_set_core_options(retro_environment_t environ_cb,
 	if (!environ_cb || !categories_supported)
 		return;
 
+#if defined(LRHARD) && !defined(HAVE_NO_LANGEXTRA)
+	libretro_align_local_categories();
+#endif
 	*categories_supported = false;
 
 	if (!environ_cb(RETRO_ENVIRONMENT_GET_CORE_OPTIONS_VERSION, &version))
