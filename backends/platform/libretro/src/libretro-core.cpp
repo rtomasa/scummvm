@@ -646,6 +646,30 @@ static void update_variables(void) {
 	updating_variables = false;
 }
 
+#ifdef LRHARD
+static void retro_update_language_options(bool allLanguages = false) {
+	for (auto &definition : option_defs_us) {
+		if (!definition.key || strcmp(definition.key, "scummvm_global_language"))
+			continue;
+		if (!retro_global_options_update_language_values(definition.values, allLanguages))
+			return;
+#ifndef HAVE_NO_LANGEXTRA
+		for (auto *local : options_intl) {
+			if (!local || local == &options_us)
+				continue;
+			for (auto *translated = local->definitions; translated->key; ++translated) {
+				if (!strcmp(translated->key, definition.key))
+					memcpy(translated->values, definition.values, sizeof(definition.values));
+			}
+		}
+#endif
+		bool hasCategories;
+		libretro_set_core_options(environ_cb, &hasCategories);
+		return;
+	}
+}
+#endif
+
 static void retro_set_options_display(void) {
 	/*struct retro_core_option_display option_display;
 
@@ -902,10 +926,15 @@ void retro_set_environment(retro_environment_t cb) {
 #else
 	bool tmp = true;
 #endif
-	bool has_categories;
 	environ_cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &tmp);
 	libretro_fill_options_mapper_data(environ_cb);
+#ifdef LRHARD
+	// Accept saved per-content choices until detection narrows the list.
+	retro_update_language_options(true);
+#else
+	bool has_categories;
 	libretro_set_core_options(environ_cb, &has_categories);
+#endif
 
 	/* Core option display callback */
 	struct retro_core_options_update_display_callback update_display_callback = {retro_update_options_display};
@@ -1393,6 +1422,10 @@ void retro_run(void) {
 			/* Switch to ScummVM thread */
 			retro_switch_to_emu_thread();
 
+#ifdef LRHARD
+			retro_update_language_options();
+#endif
+
 			if (retro_emu_thread_exited()) {
 				log_scummvm_exit_code();
 				exit_to_frontend();
@@ -1452,6 +1485,7 @@ void retro_unload_game(void) {
 	close_emu_thread();
 	libretroUnmountArchive();
 #ifdef LRHARD
+	retro_update_language_options(true);
 	display_aspect_ratio = 0;
 #ifdef USE_OPENGL
 	hw_geometry_barrier = false;

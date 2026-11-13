@@ -91,6 +91,16 @@ audio is disabled for the session and its core option is omitted. The core
 sample rate is fixed at 48000 Hz, ignoring any saved sample-rate option, and
 its option is omitted too.
 
+Game language is always available in Audio and subtitles and defaults to Default.
+Its choices are detected from the loaded game files, including separate language
+matches for multilingual Gobliiins and Little Big Adventure releases. No INI
+entry is required. Games without language metadata offer only Default. Explicit
+choices apply for the session after restarting content; save a per-game core
+option override in the frontend to retain them. Default follows normal game
+detection or an existing game configuration. Voice language depends on the game
+and installed audio. Broken Sword's multilingual text setting is handled
+separately from its detected edition and voices.
+
 MIDI and MT-32 options use explicit defaults without ScummVM CFG: General MIDI
 device is Automatic, MT-32 device is MT-32 emulator, Mixed AdLib/MIDI mode is
 enabled, True Roland MT-32 and Roland GS mappings are disabled, and MIDI gain

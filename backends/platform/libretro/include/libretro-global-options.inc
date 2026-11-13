@@ -62,6 +62,9 @@ LR_GLOBAL_OPTION("opl_driver", "opl_driver", "AdLib emulator",
 LR_GLOBAL_VOLUME("music_volume", "music_volume", "Music volume", "255")
 LR_GLOBAL_VOLUME("sfx_volume", "sfx_volume", "Effects volume", "204")
 LR_GLOBAL_VOLUME("speech_volume", "speech_volume", "Speech volume", "204")
+LR_GLOBAL_OPTION("language", "language", "Game language",
+	"Select a language detected in the loaded game files. Default uses the game's normal selection. Voice language depends on the game and installed audio.", "audio", "default",
+	{"default", "Default"}, LR_GLOBAL_END)
 LR_GLOBAL_OPTION("text_and_speech", "text_and_speech", "Text and speech",
 	"Select spoken dialogue, subtitles, or both where the game supports them.", "audio", "both",
 	{"speech", "Speech"}, {"subtitles", "Subtitles"}, {"both", "Both"}, LR_GLOBAL_END)

@@ -11,9 +11,12 @@
 #ifdef LRHARD
 #include <atomic>
 #include "common/config-manager.h"
+#include "common/fs.h"
+#include "common/gui_options.h"
 #include "common/language.h"
 #include "common/translation.h"
 #include "engines/engine.h"
+#include "engines/metaengine.h"
 #ifdef USE_FREETYPE2
 #include "graphics/fontman.h"
 #include "graphics/fonts/ttf.h"
@@ -49,6 +52,25 @@ Common::String reportedPaths;
 Common::String requestedGuiLanguage;
 Common::String reportedGui;
 bool warnedGuiFonts = false;
+Common::String gameLanguageOptions;
+std::atomic<bool> languageOptionsPending(false);
+
+bool hasGameLanguage(const Common::String &guiOptions, Common::Language language) {
+	if (language == Common::UNK_LANG)
+		return false;
+	const Common::String marker = Common::getGameGUIOptionsDescriptionLanguage(language);
+	size_t pos = guiOptions.find(marker);
+	while (pos != Common::String::npos) {
+		const size_t end = pos + marker.size();
+		// English and English (US), for example, are distinct choices.
+		if ((!pos || guiOptions[pos - 1] == ' ') &&
+			(end == guiOptions.size() || (guiOptions[end] == ' ' &&
+				(end + 1 == guiOptions.size() || guiOptions[end + 1] != '('))))
+			return true;
+		pos = guiOptions.find(marker, pos + 1);
+	}
+	return false;
+}
 
 } // namespace
 #endif
@@ -79,6 +101,8 @@ void retro_global_options_update(retro_environment_t environment) {
 		retro_variable variable = {option.key, nullptr};
 		const char *value = option.defaultValue;
 		if (environment(RETRO_ENVIRONMENT_GET_VARIABLE, &variable) && variable.value) {
+			if (!strcmp(option.setting, "language") && Common::parseLanguage(variable.value) != Common::UNK_LANG)
+				value = variable.value;
 			for (const auto &allowed : option.values) {
 				if (!allowed.value)
 					break;
@@ -124,12 +148,18 @@ void retro_global_options_init() {
 	requestedGuiLanguage.clear();
 	reportedGui.clear();
 	warnedGuiFonts = false;
+	gameLanguageOptions.clear();
+	languageOptionsPending.store(false, std::memory_order_relaxed);
+	ConfMan.removeKey("subtitles_language_override", Common::ConfigManager::kSessionDomain);
 	// Session settings override game/global INI values without being persisted.
 	// Native game options
 	// can still replace them through ConfigManager's normal setters.
 	for (const auto &option : options) {
 		const Common::String value = option.selected.empty() ? option.defaultValue : option.selected;
-		if (!strcmp(option.setting, "text_and_speech")) {
+		if (!strcmp(option.setting, "language")) {
+			// Validate and apply this after scanning all language variants.
+			ConfMan.removeKey("language", Common::ConfigManager::kSessionDomain);
+		} else if (!strcmp(option.setting, "text_and_speech")) {
 			if (value == "inherit") {
 				ConfMan.removeKey("subtitles", Common::ConfigManager::kSessionDomain);
 				ConfMan.removeKey("speech_mute", Common::ConfigManager::kSessionDomain);
@@ -160,6 +190,68 @@ void retro_global_options_init() {
 #endif
 }
 
+#ifdef LRHARD
+void retro_global_options_detect_languages(MetaEngineDetection &detector) {
+	const Common::String gameId = ConfMan.get("gameid");
+	const Common::String engineId = ConfMan.get("engineid");
+	const Common::Platform platform = Common::parsePlatform(ConfMan.get("platform"));
+	const Common::String extra = ConfMan.get("extra");
+	Common::FSList files;
+	gameLanguageOptions.clear();
+	bool swordTextLanguages = false;
+	if (Common::FSNode(ConfMan.getPath("path")).getChildren(files, Common::FSNode::kListAll)) {
+		const DetectedGames games = detector.detectGames(files);
+		for (const auto &game : games) {
+			if (game.gameId != gameId || game.engineId != engineId || game.hasUnknownFiles ||
+				game.gameSupportLevel == kUnsupportedGame ||
+				(platform != Common::kPlatformUnknown && game.platform != Common::kPlatformUnknown && game.platform != platform) ||
+				(!extra.empty() && game.extra != extra))
+				continue;
+			gameLanguageOptions += " " + Common::getGameGUIOptionsDescriptionLanguage(game.language) + " " + game.getGUIOptions();
+		}
+	}
+	if (engineId == "sword1") {
+		const bool extended = Common::checkGameGUIOption(GUIO_GAMEOPTIONS3, gameLanguageOptions);
+		swordTextLanguages = extended || Common::checkGameGUIOption(GUIO_GAMEOPTIONS2, gameLanguageOptions);
+		if (swordTextLanguages) {
+			gameLanguageOptions.clear();
+			const Common::Language languages[] = {Common::EN_ANY, Common::DE_DEU, Common::FR_FRA, Common::IT_ITA, Common::ES_ESP};
+			for (const auto language : languages)
+				gameLanguageOptions += " " + Common::getGameGUIOptionsDescriptionLanguage(language);
+			if (extended) {
+				gameLanguageOptions += " " + Common::getGameGUIOptionsDescriptionLanguage(Common::PT_BRA);
+				gameLanguageOptions += " " + Common::getGameGUIOptionsDescriptionLanguage(Common::CS_CZE);
+			}
+		}
+	}
+	languageOptionsPending.store(true, std::memory_order_release);
+	for (const auto &option : options) {
+		if (strcmp(option.setting, "language") || option.selected.empty() || option.selected == "default")
+			continue;
+		if (hasGameLanguage(gameLanguageOptions, Common::parseLanguage(option.selected))) {
+			ConfMan.set(swordTextLanguages ? "subtitles_language_override" : "language", option.selected, Common::ConfigManager::kSessionDomain);
+		} else if (retro_log_cb) {
+			retro_log_cb(RETRO_LOG_WARN, "[ScummVM] Language %s is unavailable for %s; keeping the default.\n", option.selected.c_str(), gameId.c_str());
+		}
+	}
+}
+
+bool retro_global_options_update_language_values(retro_core_option_value *values, bool allLanguages) {
+	if (!languageOptionsPending.exchange(false, std::memory_order_acquire) && !allLanguages)
+		return false;
+	memset(values, 0, sizeof(*values) * RETRO_NUM_CORE_OPTION_VALUES_MAX);
+	values[0] = {"default", "Default"};
+	unsigned count = 1;
+	for (const Common::LanguageDescription *language = Common::g_languages; language->code; ++language) {
+		if (count >= RETRO_NUM_CORE_OPTION_VALUES_MAX - 1)
+			break;
+		if (allLanguages || hasGameLanguage(gameLanguageOptions, language->id))
+			values[count++] = {language->code, language->description};
+	}
+	return true;
+}
+#endif
+
 void retro_global_options_log_paths(const char *paths) {
 #ifdef LRHARD
 	if (retro_log_cb && reportedPaths != paths) {
@@ -171,10 +263,10 @@ void retro_global_options_log_paths(const char *paths) {
 
 void retro_global_options_prepare_game(const char *detectedLanguage) {
 #ifdef LRHARD
+	// Direct content launches may have no language saved in a target.
+	if (!ConfMan.hasKey("language") && detectedLanguage && *detectedLanguage)
+		ConfMan.set("language", detectedLanguage, Common::ConfigManager::kSessionDomain);
 	if (ConfMan.getBool("gui_use_game_language")) {
-		// Auto-detected content need not have a language saved in its INI target.
-		if (!ConfMan.hasKey("language") && detectedLanguage && *detectedLanguage)
-			ConfMan.set("language", detectedLanguage, Common::ConfigManager::kSessionDomain);
 		if (ConfMan.hasKey("language")) {
 			// Game identifiers (e.g. br/cn/tw) differ from GUI translation locales.
 			const Common::Language language = Common::parseLanguage(ConfMan.get("language"));

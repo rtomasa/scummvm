@@ -24,6 +24,11 @@ bool retro_global_options_mt32_lcd_enabled();
 
 void retro_global_options_update(retro_environment_t environment);
 void retro_global_options_init();
+#ifdef LRHARD
+class MetaEngineDetection;
+void retro_global_options_detect_languages(MetaEngineDetection &detector);
+bool retro_global_options_update_language_values(retro_core_option_value *values, bool allLanguages = false);
+#endif
 void retro_global_options_prepare_game(const char *detectedLanguage);
 void retro_global_options_log_gui();
 void retro_global_options_log_paths(const char *paths);

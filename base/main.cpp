@@ -156,6 +156,10 @@ static Common::Error identifyGame(const Common::String &debugLevels, const Plugi
 	// Query the plugin for the game descriptor
 	MetaEngineDetection &metaEngine = (*detectionPlugin)->get<MetaEngineDetection>();
 
+#if defined(__LIBRETRO__) && defined(LRHARD)
+	retro_global_options_detect_languages(metaEngine);
+#endif
+
 	// before doing anything, we register the debug channels of the (Meta)Engine(Detection)
 	DebugMan.addAllDebugChannels(metaEngine.getDebugChannels());
 	// Setup now the debug channels
