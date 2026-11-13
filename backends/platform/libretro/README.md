@@ -178,6 +178,28 @@ The core also supports dedicated per game **hook** plain text files with `.scumm
 
 Game IDs can be specified on their own (for example `monkey`) or qualified with an engine ID (`scumm:monkey`) to resolve ambiguity. A matching target in `scummvm.ini` takes precedence over a game ID.
 
+### Loading ZIP games
+
+The core accepts `.zip` and `.zsvm` files; both must contain a ZIP archive.
+The archive is passed intact to the core and exposed as a read-only game
+folder, without extracting files to disk. Detection uses the contents, not
+the archive filename. Place one game's data at the archive root or inside a
+single containing folder (up to 16 nested containing folders are supported).
+Preserve the game's subdirectory structure. Archives with several separate
+game folders are not searched recursively.
+
+The archive uses the same libretro VFS access as other content. ScummVM's
+ZIP reader decompresses accessed members into memory to support seeking.
+The backend retains recently accessed files within a 128 MiB cache, plus
+one file larger than that budget, to avoid decompressing resources each
+time an engine reopens them. These retained buffers are shared with open
+streams and released when the archive is unmounted and its nodes are freed.
+Large game data files can therefore require substantial RAM. Games that
+bypass ScummVM's filesystem or need writable game data may require an
+unpacked folder. Encrypted or unsupported ZIP variants are not supported.
+Saves continue to use the configured save directory. Engine compatibility
+must be verified with actual games.
+
 ### Creating ScummVM core playlist
 The recommended way to generate a ScummVM core playlist is from within the ScummVM Launcher (i.e. the interal core GUI) with the Playlist Generator tool. Both needed hook files and the playlist are created automatically, based on ScummVM Launcher games list.
   - Load the core from RetroArch and start it to reach the ScummVM GUI (i.e. the Launcher)

@@ -926,9 +926,9 @@ void retro_get_system_info(struct retro_system_info *info) {
 #define __GIT_VERSION ""
 #endif
 	info->library_version = __GIT_VERSION;
-	info->valid_extensions = "scummvm|svm";
+	info->valid_extensions = "scummvm|svm|zip|zsvm";
 	info->need_fullpath = true;
-	info->block_extract = false;
+	info->block_extract = true;
 }
 
 void retro_set_size(unsigned width, unsigned height) {
@@ -1138,6 +1138,7 @@ void retro_init(void) {
 }
 
 void retro_deinit(void) {
+	libretroUnmountArchive();
 	LIBRETRO_G_SYSTEM->destroy();
 
 	if (audio_sample_buffer)
@@ -1213,8 +1214,16 @@ bool retro_load_game(const struct retro_game_info *game) {
 			game_buf_path[0] = '\0';
 		}
 		game_buf.path = game_buf_path;
+		Common::String archive_path = game->path;
+		archive_path.toLowercase();
+		bool is_archive = archive_path.hasSuffix(".zip") || archive_path.hasSuffix(".zsvm");
+		libretroUnmountArchive();
+		if (is_archive && !libretroMountArchive(game->path)) {
+			retro_osd_notification("Unable to open game ZIP archive", RETRO_LOG_ERROR);
+			return false;
+		}
 		// Retrieve the game path.
-		Common::FSNode detect_target = Common::FSNode(game->path);
+		Common::FSNode detect_target = Common::FSNode(Common::Path(is_archive ? LibRetroFilesystemNode(game->path).getPath() : Common::String(game->path)));
 		Common::FSNode parent_dir = detect_target.getParent();
 		char target_id[400] = {0};
 		char buffer[400] = {0};
@@ -1259,6 +1268,26 @@ bool retro_load_game(const struct retro_game_info *game) {
 			}
 
 			test_game_status = LIBRETRO_G_SYSTEM->testGame(parent_dir.getPath().toString().c_str(), true);
+			// Also accept a game wrapped in a single containing directory.
+			for (uint depth = 0; is_archive && test_game_status == TEST_GAME_KO_NOT_FOUND && depth < 16; ++depth) {
+				Common::FSList dirs;
+				parent_dir.getChildren(dirs, Common::FSNode::kListDirectoriesOnly, false);
+				for (Common::FSList::iterator it = dirs.begin(); it != dirs.end();) {
+					if (it->getName() == "__MACOSX")
+						it = dirs.erase(it);
+					else
+						++it;
+				}
+				if (dirs.size() != 1)
+					break;
+				parent_dir = dirs.front();
+				test_game_status = LIBRETRO_G_SYSTEM->testGame(parent_dir.getPath().toString().c_str(), true);
+			}
+			if (is_archive && test_game_status == TEST_GAME_KO_NOT_FOUND) {
+				retro_osd_notification("Game not found in ZIP archive", RETRO_LOG_ERROR);
+				libretroUnmountArchive();
+				return false;
+			}
 		}
 
 		// Preliminary game scan results
@@ -1298,6 +1327,7 @@ bool retro_load_game(const struct retro_game_info *game) {
 	}
 
 	if (!retro_init_emu_thread()) {
+		libretroUnmountArchive();
 		if (retro_log_cb)
 			retro_log_cb(RETRO_LOG_ERROR, "[scummvm] Failed to initialize emulation thread!\n");
 		return false;
@@ -1420,6 +1450,7 @@ void retro_run(void) {
 
 void retro_unload_game(void) {
 	close_emu_thread();
+	libretroUnmountArchive();
 #ifdef LRHARD
 	display_aspect_ratio = 0;
 #ifdef USE_OPENGL

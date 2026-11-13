@@ -228,7 +228,7 @@ endif
 # Nice name shown in frontend
 CORE_NAME = "ScummVM"
 # Pipe separated allowed file extensions that core can handle
-CORE_SUPPORTED_EXTENSIONS = "scummvm|svm"
+CORE_SUPPORTED_EXTENSIONS = "scummvm|svm|zip|zsvm"
 # Extension used for generated playlist hooks
 CORE_EXTENSIONS = "scummvm"
 # Subdirs for datafiles bundle

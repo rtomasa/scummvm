@@ -29,6 +29,9 @@
 #endif
 #include <unistd.h>
 
+bool libretroMountArchive(const Common::String &path);
+void libretroUnmountArchive();
+
 /**
  * Implementation of the ScummVM file system API based on LibRetro.
  *
