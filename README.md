@@ -1,5 +1,17 @@
 # [ScummVM README](https://www.scummvm.org/) · [![Translation status](https://translations.scummvm.org/widgets/scummvm/-/scummvm/svg-badge.svg)](https://translations.scummvm.org/engage/scummvm/?utm_source=widget) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md#pull-requests)
 
+## Fork customizations
+
+This fork adapts the ScummVM libretro core for RePlay and native libretro frontends:
+
+- **Native frontend integration (`LRHARD=1`):** Keeps ScummVM's Save, Load and game-specific Options dialogs while hiding launcher and global menu actions. Content loading failures return to the frontend, and launching without content is disabled.
+- **Frontend core options:** Exposes video, audio, subtitles, MIDI/MT-32, interface, splash screen and autosave settings. Game language choices are detected from the loaded files. Explicit selections apply for the session without overwriting `scummvm.ini`; some settings require restarting content.
+- **Native interface:** Uses a built-in Classic theme with charcoal panels, blue highlights, antialiased rendering and scalable fonts when available. Dialogs use their own geometry and restore the game's geometry when closed.
+- **Game loading:** Supports `.scummvm` and `.svm` hook files, including empty hooks that autodetect games in their parent folder. Loads `.zip` and `.zsvm` game archives without extracting them to disk, caching decompressed resources in memory to reduce repeated loading stalls.
+- **ARM64 stability:** Updates libretro-common to fix coroutine register preservation on ARM64.
+
+The menu, settings and interface changes above apply to `LRHARD` builds. See the [libretro backend README](backends/platform/libretro/README.md) for build instructions, option defaults, archive limitations and Raspberry Pi compatibility guidance.
+
 ## About ScummVM
 
 ScummVM allows you to play classic graphic point-and-click adventure games, text adventure games, and RPGs, as long as you already have the game data files. ScummVM replaces the executable files shipped with the games, which means you can now play your favorite games on all your favorite devices.
